@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Capital Flow Game</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    animation: {
+                        'spin-once': 'spin 1s ease-out',
+                        'slide-in': 'slide-in 0.3s ease-out forwards',
+                        'fade-in': 'fade-in 0.5s ease-out forwards',
+                        'pop-in': 'pop-in 0.3s ease-out forwards',
+                    },
+                    keyframes: {
+                        'slide-in': {
+                            '0%': { opacity: '0', transform: 'translateY(-10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        'fade-in': {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        'pop-in': {
+                            '0%': { opacity: '0', transform: 'scale(0.95)' },
+                            '100%': { opacity: '1', transform: 'scale(1)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- React & Babel & Icons Import Map -->
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "lucide-react": "https://esm.sh/lucide-react@0.263.1"
+        }
+    }
+    </script>
+    <!-- Babel for JSX compilation in browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { 
+            LineChart, ArrowRight, TrendingUp, TrendingDown, AlertTriangle, 
+            Info, Globe, RefreshCw, BookOpen, Activity, PieChart, ShieldAlert, 
+            Landmark, Briefcase, Moon, Sun, DollarSign
+        } from 'lucide-react';
+
+        // --- データ定義 ---
+
+        const INITIAL_REGIONS = {
+            USA: { id: 'USA', name: '米国', interest: 5.0, risk: 2, growth: 2.5, description: '世界の基軸通貨。高金利だがインフレ懸念あり。', color: 'blue' },
+            JPN: { id: 'JPN', name: '日本', interest: 0.1, risk: 1, growth: 1.0, description: '安全資産。超低金利で調達通貨になりやすい。', color: 'red' },
+            EU:  { id: 'EU',  name: '欧州', interest: 3.5, risk: 3, growth: 1.5, description: '安定しているが、加盟国間の格差がリスク。', color: 'indigo' },
+            EM:  { id: 'EM',  name: '新興国', interest: 8.0, risk: 8, growth: 5.0, description: '高金利・高成長だが、政治不安や暴落リスク高。', color: 'amber' }
+        };
+
+        const EVENTS = [
+            {
+                title: "米FRBが利上げを発表",
+                desc: "インフレ抑制のため米国が金利を引き上げました。ドル高が予想されます。",
+                effect: { USA: { interest: 1.0, growth: -0.2 }, EM: { risk: 2 } },
+                type: "positive",
+                icon: <TrendingUp />
+            },
+            {
+                title: "地政学的リスクの上昇",
+                desc: "紛争懸念により投資家心理が悪化。「有事の円買い」が発生しそうです。",
+                effect: { JPN: { growth: 0.1 }, USA: { risk: 1 }, EU: { risk: 2 }, EM: { risk: 4 } },
+                type: "negative",
+                icon: <AlertTriangle />
+            },
+            {
+                title: "新興国で技術革新ブーム",
+                desc: "新興国の成長率が大幅に予想を上回りました。リスクマネーが流入します。",
+                effect: { EM: { growth: 2.0, risk: -1 } },
+                type: "positive",
+                icon: <Activity />
+            },
+            {
+                title: "日銀が金融緩和を維持",
+                desc: "日本は低金利を維持。円キャリートレード（円で借りて他国へ投資）が活発化。",
+                effect: { JPN: { interest: 0 }, USA: { growth: 0.1 }, EM: { growth: 0.2 } },
+                type: "neutral",
+                icon: <Landmark />
+            },
+            {
+                title: "欧州で債務懸念",
+                desc: "一部の国で財政不安。ユーロからの資本逃避が起きる可能性があります。",
+                effect: { EU: { interest: 0.5, risk: 3, growth: -0.5 } },
+                type: "negative",
+                icon: <ShieldAlert />
+            },
+            {
+                title: "世界的な原油価格の高騰",
+                desc: "エネルギーコスト増により、先進国の成長が鈍化する懸念があります。",
+                effect: { USA: { growth: -0.3 }, EU: { growth: -0.4 }, JPN: { growth: -0.2 } },
+                type: "negative",
+                icon: <TrendingDown />
+            }
+        ];
+
+        // --- コンポーネント ---
+
+        const RegionCard = ({ region, allocation, onAllocate, totalAllocation }) => {
+            const maxAllocatable = 100 - (totalAllocation - allocation);
+
+            const handleChange = (e) => {
+                const newVal = parseInt(e.target.value) || 0;
+                if (newVal <= maxAllocatable) {
+                    onAllocate(region.id, newVal);
+                }
+            };
+
+            const colors = {
+                blue: { 
+                    border: 'border-blue-200 dark:border-blue-800', 
+                    text: 'text-blue-700 dark:text-blue-300', 
+                    bg: 'bg-blue-50 dark:bg-blue-900/30', 
+                    accent: 'bg-blue-600 dark:bg-blue-500' 
+                },
+                red: { 
+                    border: 'border-red-200 dark:border-red-800', 
+                    text: 'text-red-700 dark:text-red-300', 
+                    bg: 'bg-red-50 dark:bg-red-900/30', 
+                    accent: 'bg-red-600 dark:bg-red-500' 
+                },
+                indigo: { 
+                    border: 'border-indigo-200 dark:border-indigo-800', 
+                    text: 'text-indigo-700 dark:text-indigo-300', 
+                    bg: 'bg-indigo-50 dark:bg-indigo-900/30', 
+                    accent: 'bg-indigo-600 dark:bg-indigo-500' 
+                },
+                amber: { 
+                    border: 'border-amber-200 dark:border-amber-800', 
+                    text: 'text-amber-700 dark:text-amber-300', 
+                    bg: 'bg-amber-50 dark:bg-amber-900/30', 
+                    accent: 'bg-amber-600 dark:bg-amber-500' 
+                },
+            };
+            const theme = colors[region.color];
+
+            return (
+                <div className={`group relative bg-white dark:bg-slate-800 rounded-xl border-2 ${theme.border} p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1`}>
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full ${theme.bg} ${theme.text} flex items-center justify-center font-bold text-lg shadow-sm`}>
+                                {region.id.charAt(0)}
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg leading-tight">{region.name}</h3>
+                                <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">{region.id}</span>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <span className={`text-3xl font-bold tracking-tight ${theme.text}`}>{allocation}%</span>
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-3 mb-6 bg-gray-50 dark:bg-slate-900/50 p-3 rounded-lg">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1"><TrendingUp size={14}/> 金利(Yield)</span>
+                            <span className="font-bold text-gray-800 dark:text-gray-200">{region.interest.toFixed(1)}%</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1"><Activity size={14}/> 成長(Growth)</span>
+                            <span className="font-bold text-gray-800 dark:text-gray-200">{region.growth.toFixed(1)}%</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1"><ShieldAlert size={14}/> リスク(Risk)</span>
+                            <div className="flex gap-0.5 h-2 items-center">
+                                {[...Array(10)].map((_, i) => (
+                                    <div key={i} className={`w-1.5 h-full rounded-full transition-colors ${i < region.risk ? (i > 7 ? 'bg-red-500' : 'bg-gray-800 dark:bg-gray-300') : 'bg-gray-200 dark:bg-slate-700'}`}></div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="pt-2">
+                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>Allocation</span>
+                            <span>Max: {maxAllocatable}%</span>
+                        </div>
+                        <input 
+                            type="range" 
+                            min="0" 
+                            max="100" 
+                            value={allocation} 
+                            onChange={handleChange}
+                            className={`w-full h-2 bg-gray-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-gray-800 dark:accent-gray-200 hover:accent-gray-600`}
+                        />
+                        <p className="mt-3 text-xs text-gray-500 dark:text-gray-400 leading-relaxed h-[3em] overflow-hidden">
+                            {region.description}
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
+        function App() {
+            const [balance, setBalance] = useState(1000000);
+            const [turn, setTurn] = useState(1);
+            const [regions, setRegions] = useState(INITIAL_REGIONS);
+            const [allocations, setAllocations] = useState({ USA: 25, JPN: 25, EU: 25, EM: 25 });
+            const [history, setHistory] = useState([{ turn: 0, balance: 1000000 }]);
+            const [currentEvent, setCurrentEvent] = useState(null);
+            const [logs, setLogs] = useState([]);
+            const [showTutorial, setShowTutorial] = useState(true);
+            const [lastDiff, setLastDiff] = useState(0);
+            const [isDarkMode, setIsDarkMode] = useState(false);
+
+            const totalAllocation = Object.values(allocations).reduce((a, b) => a + b, 0);
+
+            useEffect(() => {
+                if (isDarkMode) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            }, [isDarkMode]);
+
+            const handleAllocate = (id, value) => {
+                let otherTotal = 0;
+                Object.keys(allocations).forEach(key => {
+                    if (key !== id) otherTotal += allocations[key];
+                });
+                
+                if (otherTotal + value <= 100) {
+                    setAllocations(prev => ({ ...prev, [id]: value }));
+                }
+            };
+
+            const nextTurn = () => {
+                let turnProfit = 0;
+                let turnLog = [];
+                
+                Object.keys(regions).forEach(key => {
+                    const region = regions[key];
+                    const investedAmount = balance * (allocations[key] / 100);
+                    
+                    let rateOfReturn = (region.interest + region.growth) / 100;
+                    
+                    const roll = Math.random() * 10;
+                    if (roll < region.risk) {
+                        const damage = (Math.random() * 0.15 + 0.05);
+                        rateOfReturn -= damage;
+                        turnLog.push({ type: 'risk', text: `${region.name}市場でショック発生！資産価値が${(damage * 100).toFixed(1)}%下落。` });
+                    }
+
+                    const profit = investedAmount * rateOfReturn;
+                    turnProfit += profit;
+                });
+
+                const newBalance = Math.floor(balance + turnProfit);
+                setBalance(newBalance);
+                setLastDiff(Math.floor(turnProfit));
+                setHistory([...history, { turn: turn, balance: newBalance }]);
+
+                const randomEvent = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+                setCurrentEvent(randomEvent);
+                
+                const newRegions = JSON.parse(JSON.stringify(regions));
+                
+                Object.keys(newRegions).forEach(k => {
+                    newRegions[k].interest = Math.max(0, newRegions[k].interest + (Math.random() - 0.5) * 0.5);
+                    newRegions[k].growth = newRegions[k].growth + (Math.random() - 0.5) * 0.5;
+                    
+                    if(newRegions[k].risk > INITIAL_REGIONS[k].risk) newRegions[k].risk -= 0.2;
+                    if(newRegions[k].risk < INITIAL_REGIONS[k].risk) newRegions[k].risk += 0.2;
+                });
+
+                if (randomEvent.effect) {
+                    Object.keys(randomEvent.effect).forEach(regionId => {
+                        const effects = randomEvent.effect[regionId];
+                        if (newRegions[regionId]) {
+                            if (effects.interest) newRegions[regionId].interest += effects.interest;
+                            if (effects.growth) newRegions[regionId].growth += effects.growth;
+                            if (effects.risk) newRegions[regionId].risk += effects.risk;
+                            
+                            newRegions[regionId].risk = Math.max(0, Math.min(10, newRegions[regionId].risk));
+                            newRegions[regionId].interest = Math.max(-1, newRegions[regionId].interest);
+                        }
+                    });
+                }
+
+                setRegions(newRegions);
+                setTurn(turn + 1);
+                
+                const profitText = turnProfit > 0 ? `+$${Math.floor(turnProfit).toLocaleString()}` : `-$${Math.floor(Math.abs(turnProfit)).toLocaleString()}`;
+                setLogs([{ type: 'summary', text: `Turn ${turn} 終了: 損益 ${profitText}`, profit: turnProfit }, ...turnLog, ...logs].slice(0, 8));
+            };
+
+            const autoBalance = () => {
+                setAllocations({ USA: 25, JPN: 25, EU: 25, EM: 25 });
+            };
+
+            return (
+                <div className={isDarkMode ? 'dark' : ''}>
+                    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-800 dark:text-gray-100 font-sans p-2 md:p-6 transition-colors duration-300">
+                        {/* Header */}
+                        <header className="mb-6 bg-white dark:bg-slate-900 border-b-4 border-gray-800 dark:border-slate-700 p-4 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-center transition-colors duration-300">
+                            <div className="flex items-center gap-4 mb-4 md:mb-0 w-full md:w-auto">
+                                <div className="bg-gray-800 dark:bg-slate-700 p-3 text-white rounded-lg">
+                                    <Globe size={28} />
+                                </div>
+                                <div>
+                                    <h1 className="text-xl md:text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase">Global Capital Flow</h1>
+                                    <p className="text-xs md:text-sm font-medium text-gray-500 dark:text-gray-400">Financial Simulation Game</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4 md:gap-8 items-center w-full md:w-auto justify-between md:justify-end">
+                                <button 
+                                    onClick={() => setIsDarkMode(!isDarkMode)}
+                                    className="p-2 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
+                                >
+                                    {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                                </button>
+
+                                <div className="text-right">
+                                    <div className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Total Assets</div>
+                                    <div className={`text-2xl md:text-4xl font-black font-mono tracking-tighter ${lastDiff >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>
+                                        ${balance.toLocaleString()}
+                                    </div>
+                                    {turn > 1 && (
+                                        <div className={`text-xs md:text-sm font-bold flex justify-end items-center gap-1 ${lastDiff >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                            {lastDiff >= 0 ? <TrendingUp size={14}/> : <TrendingDown size={14}/>}
+                                            {lastDiff > 0 ? '+' : ''}{lastDiff.toLocaleString()}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="text-right border-l pl-4 md:pl-6 border-gray-200 dark:border-slate-700">
+                                    <div className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Period</div>
+                                    <div className="text-2xl md:text-4xl font-black font-mono text-gray-300 dark:text-slate-600">{turn}<span className="text-lg text-gray-200 dark:text-slate-700">/24</span></div> 
+                                </div>
+                            </div>
+                        </header>
+
+                        <main className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            
+                            {/* Left Column */}
+                            <div className="lg:col-span-8 space-y-6">
+                                
+                                {/* News Ticker */}
+                                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl flex flex-col md:flex-row shadow-sm overflow-hidden transition-colors duration-300">
+                                    <div className="bg-gray-100 dark:bg-slate-800 p-6 md:w-1/4 flex flex-col justify-center border-b md:border-b-0 md:border-r border-gray-200 dark:border-slate-700">
+                                        <h2 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                            <RefreshCw size={14} className={currentEvent ? "animate-spin-once" : ""} />
+                                            Market News
+                                        </h2>
+                                        <div className="text-4xl text-gray-300 dark:text-slate-600 mt-2">
+                                            {currentEvent ? (currentEvent.type === 'positive' ? <TrendingUp size={48} /> : <AlertTriangle size={48} />) : <Briefcase size={48} />}
+                                        </div>
+                                    </div>
+                                    <div className="p-6 md:w-3/4 flex flex-col justify-center">
+                                        {currentEvent ? (
+                                            <div className="animate-fade-in">
+                                                <span className={`inline-block px-2 py-1 text-xs font-bold mb-2 rounded ${
+                                                    currentEvent.type === 'positive' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 
+                                                    currentEvent.type === 'negative' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 
+                                                    'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                                }`}>
+                                                    {currentEvent.type === 'positive' ? 'Positive Outlook' : currentEvent.type === 'negative' ? 'Warning' : 'Market Update'}
+                                                </span>
+                                                <h3 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white mb-2">{currentEvent.title}</h3>
+                                                <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 leading-relaxed">{currentEvent.desc}</p>
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-400 dark:text-gray-500 italic flex items-center gap-2">Waiting for market open...</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Allocation Panel */}
+                                <div>
+                                    <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                                        <h2 className="font-bold text-xl text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                                            <PieChart className="text-gray-400 dark:text-gray-500"/>
+                                            Portfolio Allocation
+                                        </h2>
+                                        <div className="flex gap-4 items-center">
+                                            <div className={`px-4 py-2 rounded-full border ${totalAllocation === 100 ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400' : 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400'} font-bold text-sm flex items-center gap-2 transition-all`}>
+                                                TOTAL: <span className="text-lg">{totalAllocation}%</span>
+                                                {totalAllocation !== 100 && <span className="text-xs opacity-75">({100 - totalAllocation > 0 ? `${100 - totalAllocation}% left` : `${totalAllocation - 100}% over`})</span>}
+                                            </div>
+                                            <button onClick={autoBalance} className="text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline">
+                                                Reset Default
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                                        {Object.values(regions).map(region => (
+                                            <RegionCard 
+                                                key={region.id} 
+                                                region={region} 
+                                                allocation={allocations[region.id]}
+                                                onAllocate={handleAllocate}
+                                                totalAllocation={totalAllocation}
+                                            />
+                                        ))}
+                                    </div>
+
+                                    <button 
+                                        onClick={nextTurn} 
+                                        disabled={totalAllocation !== 100}
+                                        className={`w-full py-4 md:py-5 rounded-xl font-black text-lg tracking-wide uppercase transition-all duration-200
+                                            ${totalAllocation === 100 
+                                                ? 'bg-gray-900 dark:bg-blue-600 text-white hover:bg-gray-800 dark:hover:bg-blue-500 shadow-xl hover:shadow-2xl hover:-translate-y-1' 
+                                                : 'bg-gray-200 dark:bg-slate-800 text-gray-400 dark:text-slate-600 cursor-not-allowed'}`}
+                                    >
+                                        {totalAllocation === 100 ? (
+                                            <span className="flex items-center justify-center gap-3">
+                                                Commit & Next Turn <ArrowRight size={20} />
+                                            </span>
+                                        ) : (
+                                            <span className="flex items-center justify-center gap-3">
+                                                Adjust Allocation to 100%
+                                            </span>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Right Column */}
+                            <div className="lg:col-span-4 space-y-6">
+                                
+                                {/* Log */}
+                                <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden flex flex-col h-[30rem] shadow-sm transition-colors duration-300">
+                                    <div className="p-4 border-b border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50">
+                                        <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                            <Activity size={14}/> Transaction Log
+                                        </h3>
+                                    </div>
+                                    <div className="overflow-y-auto flex-1 p-4 space-y-4">
+                                        {logs.length === 0 && (
+                                            <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 text-sm">
+                                                <div className="mb-2 opacity-50"><Briefcase size={32}/></div>
+                                                <p>No transactions yet.</p>
+                                                <p className="text-xs mt-1">Start by setting your portfolio.</p>
+                                            </div>
+                                        )}
+                                        {logs.map((log, i) => (
+                                            <div key={i} className={`text-sm pb-3 border-b border-gray-100 dark:border-slate-800 last:border-0 animate-slide-in`}>
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className={`font-bold ${log.type === 'summary' ? (log.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : 'text-orange-500 dark:text-orange-400'}`}>
+                                                        {log.type === 'summary' ? (log.profit >= 0 ? 'PROFIT' : 'LOSS') : 'RISK EVENT'}
+                                                    </span>
+                                                    <span className="text-xs text-gray-300 dark:text-slate-600 font-mono">Turn {turn - 1 - Math.floor(i/2)}</span>
+                                                </div>
+                                                <p className="text-gray-600 dark:text-slate-400 leading-snug">{log.text}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Tips */}
+                                <div className="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-xl border border-blue-100 dark:border-blue-900/30 transition-colors duration-300">
+                                    <h3 className="text-blue-900 dark:text-blue-300 font-bold mb-4 flex items-center gap-2">
+                                        <BookOpen size={18} />
+                                        Knowledge Base
+                                    </h3>
+                                    <div className="space-y-4 text-sm text-blue-800 dark:text-blue-200/70">
+                                        {[{title: "キャリートレード (Carry Trade)", content: "低金利通貨（日本円など）を借り、高金利通貨（ドルや新興国通貨）で運用する手法。"},
+                                            {title: "リスクオフ (Risk Off)", content: "市場の不安が高まった際、株式等のリスク資産を売り、国債等の安全資産へ資金を移す動き。"},
+                                            {title: "金利と債券価格", content: "金利が上がると、既存の債券の魅力が下がり価格は下落する（逆相関の関係）。"}
+                                        ].map((item, index) => (
+                                            <div key={index}>
+                                                <div className="font-bold mb-1 text-blue-900 dark:text-blue-300 border-b border-blue-200 dark:border-blue-800/50 pb-1 inline-block">{item.title}</div>
+                                                <p className="opacity-90 leading-relaxed text-xs">{item.content}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </main>
+
+                        {/* Tutorial Modal */}
+                        {showTutorial && (
+                            <div className="fixed inset-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
+                                <div className="bg-white dark:bg-slate-900 max-w-lg w-full p-8 shadow-2xl rounded-2xl border border-gray-200 dark:border-slate-700 text-center relative animate-pop-in">
+                                    <button onClick={() => setShowTutorial(false)} className="absolute top-4 right-4 text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white">✕</button>
+                                    
+                                    <div className="w-20 h-20 bg-gray-900 dark:bg-blue-600 text-white flex items-center justify-center rounded-full mx-auto mb-6 shadow-lg">
+                                        <Briefcase size={36} />
+                                    </div>
+                                    
+                                    <h2 className="text-3xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-2">Fund Manager Mode</h2>
+                                    <p className="text-gray-500 dark:text-gray-400 mb-8 font-serif italic">"Manage risk, Maximize returns."</p>
+                                    
+                                    <div className="text-left space-y-4 bg-gray-50 dark:bg-slate-800 p-6 mb-8 text-sm text-gray-600 dark:text-gray-300 rounded-xl">
+                                        <p>あなたは100万ドルを運用するファンドマネージャーです。市場ニュースを読み、各国の資産配分（合計100%）を決定してください。</p>
+                                        <ul className="space-y-2 mt-4">
+                                            <li className="flex items-start gap-2">
+                                                <TrendingUp size={16} className="mt-0.5 text-green-500 shrink-0"/>
+                                                <span><strong>金利 (Yield):</strong> 毎ターン確実に得られる収益。</span>
+                                            </li>
+                                            <li className="flex items-start gap-2">
+                                                <Activity size={16} className="mt-0.5 text-blue-500 shrink-0"/>
+                                                <span><strong>成長 (Growth):</strong> 資産価値の上昇率（プラスもマイナスもある）。</span>
+                                            </li>
+                                            <li className="flex items-start gap-2">
+                                                <ShieldAlert size={16} className="mt-0.5 text-red-500 shrink-0"/>
+                                                <span><strong>リスク (Risk):</strong> この数値が高いほど、暴落イベント（資産消失）の確率が上がります。</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+
+                                    <button 
+                                        onClick={() => setShowTutorial(false)}
+                                        className="w-full bg-gray-900 dark:bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-gray-800 dark:hover:bg-blue-500 transition-colors uppercase tracking-widest shadow-lg"
+                                    >
+                                        Start Trading
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
