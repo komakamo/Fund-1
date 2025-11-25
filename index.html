@@ -260,7 +260,7 @@
                     if (roll < region.risk) {
                         const damage = (Math.random() * 0.15 + 0.05);
                         rateOfReturn -= damage;
-                        turnLog.push({ type: 'risk', text: `${region.name}市場でショック発生！資産価値が${(damage * 100).toFixed(1)}%下落。` });
+                        turnLog.push({ type: 'risk', text: `${region.name}市場でショック発生！資産価値が${(damage * 100).toFixed(1)}%下落。`, turn: turn });
                     }
 
                     const profit = investedAmount * rateOfReturn;
@@ -303,7 +303,7 @@
                 setTurn(turn + 1);
                 
                 const profitText = turnProfit > 0 ? `+$${Math.floor(turnProfit).toLocaleString()}` : `-$${Math.floor(Math.abs(turnProfit)).toLocaleString()}`;
-                setLogs([{ type: 'summary', text: `Turn ${turn} 終了: 損益 ${profitText}`, profit: turnProfit }, ...turnLog, ...logs].slice(0, 8));
+                setLogs([{ type: 'summary', text: `Turn ${turn} 終了: 損益 ${profitText}`, profit: turnProfit, turn: turn }, ...turnLog, ...logs].slice(0, 8));
             };
 
             const autoBalance = () => {
@@ -462,7 +462,7 @@
                                                     <span className={`font-bold ${log.type === 'summary' ? (log.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : 'text-orange-500 dark:text-orange-400'}`}>
                                                         {log.type === 'summary' ? (log.profit >= 0 ? 'PROFIT' : 'LOSS') : 'RISK EVENT'}
                                                     </span>
-                                                    <span className="text-xs text-gray-300 dark:text-slate-600 font-mono">Turn {turn - 1 - Math.floor(i/2)}</span>
+                                                    <span className="text-xs text-gray-300 dark:text-slate-600 font-mono">Turn {log.turn}</span>
                                                 </div>
                                                 <p className="text-gray-600 dark:text-slate-400 leading-snug">{log.text}</p>
                                             </div>
