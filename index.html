@@ -61,9 +61,25 @@
             Info, Globe, RefreshCw, BookOpen, Activity, PieChart, ShieldAlert, 
             Landmark, Briefcase, Moon, Sun, DollarSign
         } from 'lucide-react';
-        import { INITIAL_FUNDS, calculateNextTurn } from './game.js';
+        import { INITIAL_FUNDS, calculateNextTurn, EVENTS } from './game.js';
 
         // --- コンポーネント ---
+
+        const EventNotification = ({ event }) => {
+            if (!event) return null;
+
+            return (
+                <div className="bg-amber-50 dark:bg-amber-900/20 p-5 rounded-xl border-2 border-amber-200 dark:border-amber-800 mb-6 animate-fade-in shadow-md">
+                    <h3 className="text-amber-900 dark:text-amber-300 font-black text-lg mb-2 flex items-center gap-2">
+                        <AlertTriangle size={20} />
+                        RANDOM EVENT
+                    </h3>
+                    <p className="text-sm text-amber-800 dark:text-amber-200/80 leading-relaxed">
+                        <strong className="font-bold">{event.name}:</strong> {event.description}
+                    </p>
+                </div>
+            );
+        };
 
         const FundCard = ({ fund, allocation, onAllocate, totalAllocation }) => {
             const maxAllocatable = 100 - (totalAllocation - allocation);
@@ -317,7 +333,7 @@
 
                         {/* Left Column */}
                         <div className="lg:col-span-8 space-y-6">
-
+                             <EventNotification event={currentEvent} />
                             {/* Allocation Panel */}
                             <div>
                                 <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
