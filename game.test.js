@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { INITIAL_FUNDS, calculateNextTurn } from './game.js';
+import { INITIAL_FUNDS, calculateNextTurn, ACHIEVEMENTS, UNLOCKABLES } from './game.js';
 
 describe('Global Capital Flow Game', () => {
 
@@ -10,7 +10,7 @@ describe('Global Capital Flow Game', () => {
 
     beforeEach(() => {
         balance = 1000000;
-        allocations = { A: 34, B: 33, C: 33 };
+        allocations = { A: 34, B: 33, C: 33, D: 0 };
         funds = JSON.parse(JSON.stringify(INITIAL_FUNDS));
         turn = 1;
     });
@@ -23,7 +23,7 @@ describe('Global Capital Flow Game', () => {
         expect(result.turnLog).toBeInstanceOf(Array);
         expect(result.newFunds).toBeDefined();
         expect(result.fundDetails).toBeDefined();
-        expect(Object.keys(result.fundDetails).length).toBe(3);
+        expect(Object.keys(result.fundDetails).length).toBe(4);
     });
 
     test('should generate a positive profit when conditions are favorable', () => {
@@ -104,7 +104,7 @@ describe('Global Capital Flow Game', () => {
     });
 
     test('should trigger and apply a random event', () => {
-        const allocations = { A: 0, B: 0, C: 100 };
+        const allocations = { A: 0, B: 0, C: 100, D: 0 };
 
         // --- Phase 1: Calculate the expected balance *before* the event ---
         const preEventMock = jest.spyOn(Math, 'random').mockReturnValue(0.5);
@@ -114,9 +114,6 @@ describe('Global Capital Flow Game', () => {
 
         // --- Phase 2: Run the final calculation with a mock that triggers the event ---
         const finalMock = jest.spyOn(Math, 'random')
-            .mockReturnValueOnce(0.5) // Fund A sign
-            .mockReturnValueOnce(0.5) // Fund A value
-            .mockReturnValueOnce(0.5) // Fund B
             .mockReturnValueOnce(0.5) // Fund C
             .mockReturnValueOnce(0.1) // Event trigger
             .mockReturnValueOnce(0.25) // Event selection
@@ -173,5 +170,72 @@ describe('Global Capital Flow Game', () => {
         expect(result.fundDetails.C.profit).toBe(0);
 
         jest.spyOn(Math, 'random').mockRestore();
+    });
+
+    // --- Achievements and Unlocks Tests ---
+
+    describe('Achievements and Unlocks', () => {
+        test('should unlock "駆け出しファンドマネージャー" achievement when balance reaches 2,000,000', () => {
+            const history = [
+                { turn: 0, balance: 1000000 },
+                { turn: 1, balance: 1500000 },
+                { turn: 2, balance: 2100000 }
+            ];
+            const achievement = ACHIEVEMENTS['2_million_club'];
+            expect(achievement.condition(history, {}, 3)).toBe(true);
+        });
+
+        test('should not unlock "駆け出しファンドマネージャー" if balance is below 2,000,000', () => {
+            const history = [ { turn: 0, balance: 1000000 }, { turn: 1, balance: 1999999 }];
+            const achievement = ACHIEVEMENTS['2_million_club'];
+            expect(achievement.condition(history, {}, 2)).toBe(false);
+        });
+
+        test('should unlock "狂気の投資家" achievement for staying 100% in Fund C for over 10 turns', () => {
+            const allocations = { A: 0, B: 0, C: 100 };
+            const achievement = ACHIEVEMENTS['insane_gambler'];
+            expect(achievement.condition([], allocations, 11)).toBe(true);
+        });
+
+        test('should unlock "神タイミング" achievement for a perfect game', () => {
+            const history = [
+                { turn: 0, balance: 1000000 },
+                { turn: 1, balance: 1100000 },
+                { turn: 2, balance: 1200000 },
+                { turn: 3, balance: 1300000 },
+                { turn: 4, balance: 1400000 },
+                { turn: 5, balance: 1500000 },
+                { turn: 6, balance: 1600000 },
+                { turn: 7, balance: 1700000 },
+                { turn: 8, balance: 1800000 },
+                { turn: 9, balance: 1900000 },
+                { turn: 10, balance: 2000000 },
+            ];
+             const achievement = ACHIEVEMENTS['perfect_game'];
+            // Condition: history, allocations, turn, maxTurns, finalBalance
+            expect(achievement.condition(history, {}, 11, 10, 2000000)).toBe(true);
+        });
+
+         test('should not unlock "神タイミング" if there was a loss', () => {
+            const historyWithLoss = [
+                { turn: 0, balance: 1000000 },
+                { turn: 1, balance: 1100000 },
+                { turn: 2, balance: 1050000 }, // Loss here
+                { turn: 3, balance: 1200000 },
+            ];
+             const achievement = ACHIEVEMENTS['perfect_game'];
+            expect(achievement.condition(historyWithLoss, {}, 11, 10, 1200000)).toBe(false);
+        });
+
+        test('should unlock Fund D when final balance is 2,000,000 or more', () => {
+            const unlockable = UNLOCKABLES['fund_d'];
+            expect(unlockable.condition(2000000)).toBe(true);
+            expect(unlockable.condition(2500000)).toBe(true);
+        });
+
+        test('should not unlock Fund D when final balance is less than 2,000,000', () => {
+            const unlockable = UNLOCKABLES['fund_d'];
+            expect(unlockable.condition(1999999)).toBe(false);
+        });
     });
 });

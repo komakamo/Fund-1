@@ -90,9 +90,9 @@
         import { 
             LineChart as LineChartIcon, ArrowRight, TrendingUp, TrendingDown, AlertTriangle,
             Info, Globe, RefreshCw, BookOpen, Activity, PieChart, ShieldAlert, 
-            Landmark, Briefcase, Moon, Sun, DollarSign
+            Landmark, Briefcase, Moon, Sun, DollarSign, Award
         } from 'lucide-react';
-        import { INITIAL_FUNDS, calculateNextTurn, EVENTS } from './game.js';
+        import { INITIAL_FUNDS, calculateNextTurn, EVENTS, ACHIEVEMENTS, UNLOCKABLES } from './game.js';
 
         // --- コンポーネント ---
 
@@ -218,11 +218,24 @@
                     bg: 'bg-amber-50 dark:bg-amber-900/30', 
                     accent: 'accent-amber-600 dark:accent-amber-500'
                 },
+                 teal: {
+                    border: 'border-teal-200 dark:border-teal-800',
+                    text: 'text-teal-700 dark:text-teal-300',
+                    bg: 'bg-teal-50 dark:bg-teal-900/30',
+                    accent: 'accent-teal-600 dark:accent-teal-500'
+                },
             };
-            const theme = colors[fund.color];
+            const theme = colors[fund.color] || colors.blue;
 
             return (
-                <div className={`group relative bg-white dark:bg-slate-800 rounded-xl border-2 ${theme.border} p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 h-full flex flex-col`}>
+                 <div className={`group relative bg-white dark:bg-slate-800 rounded-xl border-2 ${fund.unlocked === false ? 'border-dashed border-gray-300 dark:border-slate-700' : theme.border} p-5 transition-all duration-300 ${fund.unlocked !== false ? 'hover:shadow-lg hover:-translate-y-1' : ''} h-full flex flex-col`}>
+                     {fund.unlocked === false && (
+                        <div className="absolute inset-0 bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm rounded-xl z-10 flex flex-col items-center justify-center text-center p-4">
+                            <span className="text-4xl mb-2">🔒</span>
+                            <p className="text-sm font-bold text-gray-700 dark:text-gray-300">LOCKED</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{UNLOCKABLES.fund_d.description}</p>
+                        </div>
+                    )}
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-full ${theme.bg} ${theme.text} flex items-center justify-center font-bold text-lg shadow-sm`}>
@@ -272,7 +285,45 @@
             );
         };
 
-        const TitleScreen = ({ onStartGame, isDarkMode, setIsDarkMode, highScore }) => {
+        const AchievementPopup = ({ achievement }) => {
+            if (!achievement) return null;
+            return (
+                <div className="fixed bottom-10 right-10 bg-white dark:bg-slate-800 border-2 border-amber-300 dark:border-amber-700 rounded-2xl shadow-2xl p-6 w-full max-w-sm animate-slide-in z-50">
+                    <div className="flex items-center gap-4">
+                        <div className="text-4xl">🏆</div>
+                        <div>
+                            <p className="text-xs font-bold text-amber-500 dark:text-amber-400 uppercase">Achievement Unlocked!</p>
+                            <h3 className="text-lg font-black text-gray-900 dark:text-white">{achievement.name}</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{achievement.description}</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const AchievementList = ({ achievements, unlockedAchievements }) => {
+            return (
+                <div className="bg-white dark:bg-slate-900 border-2 border-gray-200 dark:border-slate-700 rounded-2xl shadow-xl p-6">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Achievements</h3>
+                    <div className="space-y-3">
+                        {Object.values(achievements).map(ach => {
+                            const isUnlocked = unlockedAchievements.includes(ach.id);
+                            return (
+                                <div key={ach.id} className={`flex items-center gap-4 p-3 rounded-lg transition-all ${isUnlocked ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-gray-100 dark:bg-slate-800'}`}>
+                                    <div className={`text-2xl ${isUnlocked ? 'grayscale-0' : 'grayscale'}`}>{isUnlocked ? '🏆' : '❓'}</div>
+                                    <div>
+                                        <p className={`font-bold ${isUnlocked ? 'text-amber-800 dark:text-amber-300' : 'text-gray-600 dark:text-gray-400'}`}>{isUnlocked ? ach.name : '?????'}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-500">{ach.description}</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        };
+
+        const TitleScreen = ({ onStartGame, isDarkMode, setIsDarkMode, highScore, achievements, unlockedAchievements }) => {
 
             const rank = highScore ? getRank(highScore) : null;
 
@@ -330,6 +381,11 @@
                             </div>
 
                         </div>
+
+                        <div className="mt-6">
+                            <AchievementList achievements={achievements} unlockedAchievements={unlockedAchievements} />
+                        </div>
+
                          <button
                             onClick={() => setIsDarkMode(!isDarkMode)}
                             className="absolute top-4 right-4 p-3 rounded-full bg-white/50 dark:bg-slate-800/50 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
@@ -435,8 +491,8 @@
                                         TOTAL: <span className="text-base">{totalAllocation}%</span>
                                     </div>
                                 </div>
-                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    {Object.values(funds).map(fund => (
+                                 <div className={`grid grid-cols-1 ${Object.values(funds).length > 3 ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4`}>
+                                     {Object.values(funds).map(fund => (
                                         <FundCard
                                             key={fund.id}
                                             fund={fund}
@@ -577,7 +633,7 @@
             const [turn, setTurn] = useState(1);
             const [maxTurns, setMaxTurns] = useState(null);
             const [funds, setFunds] = useState(INITIAL_FUNDS);
-            const [allocations, setAllocations] = useState({ A: 34, B: 33, C: 33 });
+            const [allocations, setAllocations] = useState({ A: 34, B: 33, C: 33, D: 0 });
             const [history, setHistory] = useState([{ turn: 0, balance: 1000000 }]);
             const [currentEvent, setCurrentEvent] = useState(null);
             const [logs, setLogs] = useState([]);
@@ -586,19 +642,57 @@
             const [highScore, setHighScore] = useState(null);
             const [isNewHighScore, setIsNewHighScore] = useState(false);
             const [balanceAnimation, setBalanceAnimation] = useState('');
+            const [unlockedAchievements, setUnlockedAchievements] = useState([]);
+            const [justUnlocked, setJustUnlocked] = useState(null);
 
             useEffect(() => {
+                // Load data from localStorage on initial render
                 const savedScore = localStorage.getItem('highScore');
-                if (savedScore) {
-                    setHighScore(parseInt(savedScore, 10));
+                if (savedScore) setHighScore(parseInt(savedScore, 10));
+
+                const savedTheme = localStorage.getItem('isDarkMode');
+                if (savedTheme) setIsDarkMode(JSON.parse(savedTheme));
+
+                const savedAchievements = localStorage.getItem('unlockedAchievements');
+                if (savedAchievements) setUnlockedAchievements(JSON.parse(savedAchievements));
+
+                const initialFunds = JSON.parse(JSON.stringify(INITIAL_FUNDS));
+                const savedUnlocks = localStorage.getItem('unlockedFunds');
+                if (savedUnlocks && JSON.parse(savedUnlocks).includes('fund_d')) {
+                     initialFunds.D.unlocked = true;
                 }
-                 const savedTheme = localStorage.getItem('isDarkMode');
-                if (savedTheme) {
-                    setIsDarkMode(JSON.parse(savedTheme));
-                }
+                setFunds(initialFunds);
+                setAllocations(getAutoBalancedAllocations(initialFunds));
             }, []);
 
             const totalAllocation = Object.values(allocations).reduce((a, b) => a + b, 0);
+
+            const checkAchievements = () => {
+                const newAchievements = [];
+                Object.values(ACHIEVEMENTS).forEach(ach => {
+                    if (!unlockedAchievements.includes(ach.id) && ach.condition(history, allocations, turn, maxTurns, balance)) {
+                        newAchievements.push(ach.id);
+                        setJustUnlocked(ach);
+                        setTimeout(() => setJustUnlocked(null), 4000); // Popup disappears after 4s
+                    }
+                });
+                if (newAchievements.length > 0) {
+                    const updatedAchievements = [...unlockedAchievements, ...newAchievements];
+                    setUnlockedAchievements(updatedAchievements);
+                    localStorage.setItem('unlockedAchievements', JSON.stringify(updatedAchievements));
+                }
+            };
+
+            const checkUnlocks = () => {
+                const unlockedFunds = [];
+                if (UNLOCKABLES.fund_d.condition(balance)) {
+                    setFunds(prevFunds => ({...prevFunds, D: {...prevFunds.D, unlocked: true}}));
+                    unlockedFunds.push('fund_d');
+                }
+                 if (unlockedFunds.length > 0) {
+                    localStorage.setItem('unlockedFunds', JSON.stringify(unlockedFunds));
+                }
+            };
 
             useEffect(() => {
                 if (isDarkMode) {
@@ -623,13 +717,15 @@
 
             const nextTurn = () => {
                 if (maxTurns && turn >= maxTurns) {
-                    if (!highScore || balance > highScore) {
+                     if (!highScore || balance > highScore) {
                         localStorage.setItem('highScore', balance);
                         setHighScore(balance);
                         setIsNewHighScore(true);
                     } else {
                         setIsNewHighScore(false);
                     }
+                    checkUnlocks();
+                    checkAchievements(); // Check final achievements
                     setGameState('result');
                     return;
                 }
@@ -649,6 +745,8 @@
                 setCurrentEvent(randomEvent);
                 setFunds(newFunds);
                 setTurn(turn + 1);
+
+                checkAchievements();
 
                 if (lastDiff > 0) {
                     setBalanceAnimation('animate-poyo');
@@ -670,8 +768,28 @@
                 ].slice(0, 10));
             };
 
+            const getAutoBalancedAllocations = (currentFunds) => {
+                const availableFunds = Object.values(currentFunds).filter(f => f.unlocked !== false);
+                const count = availableFunds.length;
+                const baseAllocation = Math.floor(100 / count);
+                const remainder = 100 % count;
+
+                const newAllocations = {};
+                availableFunds.forEach((fund, index) => {
+                    newAllocations[fund.id] = baseAllocation + (index < remainder ? 1 : 0);
+                });
+
+                // Ensure all fund keys are present, even if their value is 0
+                Object.keys(currentFunds).forEach(key => {
+                    if (!newAllocations[key]) {
+                        newAllocations[key] = 0;
+                    }
+                });
+                return newAllocations;
+            }
+
             const autoBalance = () => {
-                setAllocations({ A: 34, B: 33, C: 33 });
+                setAllocations(getAutoBalancedAllocations(funds));
             };
 
             const startGame = (turns) => {
@@ -683,8 +801,13 @@
                 setGameState('title');
                 setBalance(1000000);
                 setTurn(1);
-                setFunds(INITIAL_FUNDS);
-                setAllocations({ A: 34, B: 33, C: 33 });
+                 // Reset funds but keep unlocked status
+                const newFunds = JSON.parse(JSON.stringify(INITIAL_FUNDS));
+                if (funds.D.unlocked) {
+                    newFunds.D.unlocked = true;
+                }
+                setFunds(newFunds);
+                setAllocations(getAutoBalancedAllocations(newFunds));
                 setHistory([{ turn: 0, balance: 1000000 }]);
                 setCurrentEvent(null);
                 setLogs([]);
@@ -699,7 +822,8 @@
 
             return (
                 <div className={isDarkMode ? 'dark' : ''}>
-                    {gameState === 'title' && <TitleScreen onStartGame={startGame} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} highScore={highScore} />}
+                    <AchievementPopup achievement={justUnlocked} />
+                    {gameState === 'title' && <TitleScreen onStartGame={startGame} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} highScore={highScore} achievements={ACHIEVEMENTS} unlockedAchievements={unlockedAchievements}/>}
                     {gameState === 'playing' && <GameScreen
                         balance={balance}
                         turn={turn}
