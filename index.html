@@ -61,26 +61,17 @@
             Info, Globe, RefreshCw, BookOpen, Activity, PieChart, ShieldAlert, 
             Landmark, Briefcase, Moon, Sun, DollarSign
         } from 'lucide-react';
-        import { INITIAL_REGIONS, EVENTS, calculateNextTurn } from './game.js';
-
-        const ICONS = {
-            TrendingUp: <TrendingUp />,
-            AlertTriangle: <AlertTriangle />,
-            Activity: <Activity />,
-            Landmark: <Landmark />,
-            ShieldAlert: <ShieldAlert />,
-            TrendingDown: <TrendingDown />,
-        };
+        import { INITIAL_FUNDS, calculateNextTurn } from './game.js';
 
         // --- コンポーネント ---
 
-        const RegionCard = ({ region, allocation, onAllocate, totalAllocation }) => {
+        const FundCard = ({ fund, allocation, onAllocate, totalAllocation }) => {
             const maxAllocatable = 100 - (totalAllocation - allocation);
 
             const handleChange = (e) => {
                 const newVal = parseInt(e.target.value) || 0;
                 if (newVal <= maxAllocatable) {
-                    onAllocate(region.id, newVal);
+                    onAllocate(fund.id, newVal);
                 }
             };
 
@@ -90,12 +81,6 @@
                     text: 'text-blue-700 dark:text-blue-300', 
                     bg: 'bg-blue-50 dark:bg-blue-900/30', 
                     accent: 'bg-blue-600 dark:bg-blue-500' 
-                },
-                red: { 
-                    border: 'border-red-200 dark:border-red-800', 
-                    text: 'text-red-700 dark:text-red-300', 
-                    bg: 'bg-red-50 dark:bg-red-900/30', 
-                    accent: 'bg-red-600 dark:bg-red-500' 
                 },
                 indigo: { 
                     border: 'border-indigo-200 dark:border-indigo-800', 
@@ -110,18 +95,18 @@
                     accent: 'bg-amber-600 dark:bg-amber-500' 
                 },
             };
-            const theme = colors[region.color];
+            const theme = colors[fund.color];
 
             return (
                 <div className={`group relative bg-white dark:bg-slate-800 rounded-xl border-2 ${theme.border} p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1`}>
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-full ${theme.bg} ${theme.text} flex items-center justify-center font-bold text-lg shadow-sm`}>
-                                {region.id.charAt(0)}
+                                {fund.id}
                             </div>
                             <div>
-                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg leading-tight">{region.name}</h3>
-                                <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">{region.id}</span>
+                                <h3 className="font-bold text-gray-800 dark:text-gray-100 text-lg leading-tight">{fund.name}</h3>
+                                <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">ファンド{fund.id}</span>
                             </div>
                         </div>
                         <div className="text-right">
@@ -131,20 +116,14 @@
                     
                     <div className="space-y-3 mb-6 bg-gray-50 dark:bg-slate-900/50 p-3 rounded-lg">
                         <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1"><TrendingUp size={14}/> 金利(Yield)</span>
-                            <span className="font-bold text-gray-800 dark:text-gray-200">{region.interest.toFixed(1)}%</span>
+                            <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1"><TrendingUp size={14}/> 期待リターン</span>
+                            <span className="font-bold text-gray-800 dark:text-gray-200">+{fund.expectedReturn.toFixed(1)}%</span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1"><Activity size={14}/> 成長(Growth)</span>
-                            <span className="font-bold text-gray-800 dark:text-gray-200">{region.growth.toFixed(1)}%</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1"><ShieldAlert size={14}/> リスク(Risk)</span>
-                            <div className="flex gap-0.5 h-2 items-center">
-                                {[...Array(10)].map((_, i) => (
-                                    <div key={i} className={`w-1.5 h-full rounded-full transition-colors ${i < region.risk ? (i > 7 ? 'bg-red-500' : 'bg-gray-800 dark:bg-gray-300') : 'bg-gray-200 dark:bg-slate-700'}`}></div>
-                                ))}
-                            </div>
+                            <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1"><Activity size={14}/> 変動</span>
+                            <span className="font-bold text-gray-800 dark:text-gray-200">
+                                {fund.id === 'C' ? `${fund.fluctuation.min}% ~ +${fund.fluctuation.max}%` : `±${fund.fluctuation.min}% ~ ${fund.fluctuation.max}%`}
+                            </span>
                         </div>
                     </div>
 
@@ -162,7 +141,7 @@
                             className={`w-full h-2 bg-gray-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-gray-800 dark:accent-gray-200 hover:accent-gray-600`}
                         />
                         <p className="mt-3 text-xs text-gray-500 dark:text-gray-400 leading-relaxed h-[3em] overflow-hidden">
-                            {region.description}
+                            {fund.description}
                         </p>
                     </div>
                 </div>
@@ -285,7 +264,7 @@
         }
 
         const GameScreen = ({
-            balance, turn, maxTurns, regions, allocations, history, currentEvent, logs, lastDiff, isDarkMode, setIsDarkMode,
+            balance, turn, maxTurns, funds, allocations, history, currentEvent, logs, lastDiff, isDarkMode, setIsDarkMode,
             handleAllocate, nextTurn, autoBalance, totalAllocation
         }) => {
              const [showTutorial, setShowTutorial] = useState(true);
@@ -339,36 +318,6 @@
                         {/* Left Column */}
                         <div className="lg:col-span-8 space-y-6">
 
-                            {/* News Ticker */}
-                            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl flex flex-col md:flex-row shadow-sm overflow-hidden transition-colors duration-300">
-                                <div className="bg-gray-100 dark:bg-slate-800 p-6 md:w-1/4 flex flex-col justify-center border-b md:border-b-0 md:border-r border-gray-200 dark:border-slate-700">
-                                    <h2 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                        <RefreshCw size={14} className={currentEvent ? "animate-spin-once" : ""} />
-                                        Market News
-                                    </h2>
-                                    <div className="text-4xl text-gray-300 dark:text-slate-600 mt-2">
-                                        {currentEvent ? ICONS[currentEvent.icon] : <Briefcase size={48} />}
-                                    </div>
-                                </div>
-                                <div className="p-6 md:w-3/4 flex flex-col justify-center">
-                                    {currentEvent ? (
-                                        <div className="animate-fade-in">
-                                            <span className={`inline-block px-2 py-1 text-xs font-bold mb-2 rounded ${
-                                                currentEvent.type === 'positive' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                                currentEvent.type === 'negative' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                                'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                                            }`}>
-                                                {currentEvent.type === 'positive' ? 'Positive Outlook' : currentEvent.type === 'negative' ? 'Warning' : 'Market Update'}
-                                            </span>
-                                            <h3 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white mb-2">{currentEvent.title}</h3>
-                                            <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 leading-relaxed">{currentEvent.desc}</p>
-                                        </div>
-                                    ) : (
-                                        <p className="text-gray-400 dark:text-gray-500 italic flex items-center gap-2">Waiting for market open...</p>
-                                    )}
-                                </div>
-                            </div>
-
                             {/* Allocation Panel */}
                             <div>
                                 <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
@@ -387,12 +336,12 @@
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                                    {Object.values(regions).map(region => (
-                                        <RegionCard
-                                            key={region.id}
-                                            region={region}
-                                            allocation={allocations[region.id]}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                                    {Object.values(funds).map(fund => (
+                                        <FundCard
+                                            key={fund.id}
+                                            fund={fund}
+                                            allocation={allocations[fund.id]}
                                             onAllocate={handleAllocate}
                                             totalAllocation={totalAllocation}
                                         />
@@ -487,19 +436,15 @@
                                 <p className="text-gray-500 dark:text-gray-400 mb-8 font-serif italic">"Manage risk, Maximize returns."</p>
 
                                 <div className="text-left space-y-4 bg-gray-50 dark:bg-slate-800 p-6 mb-8 text-sm text-gray-600 dark:text-gray-300 rounded-xl">
-                                    <p>あなたは100万ドルを運用するファンドマネージャーです。市場ニュースを読み、各国の資産配分（合計100%）を決定してください。</p>
+                                    <p>あなたは100万ドルを運用するファンドマネージャーです。性格の違う3つのファンドに資産を配分（合計100%）して、資産を最大化してください。</p>
                                     <ul className="space-y-2 mt-4">
                                         <li className="flex items-start gap-2">
                                             <TrendingUp size={16} className="mt-0.5 text-green-500 shrink-0"/>
-                                            <span><strong>金利 (Yield):</strong> 毎ターン確実に得られる収益。</span>
+                                            <span><strong>期待リターン:</strong> 各ターンのリターンの期待値。</span>
                                         </li>
                                         <li className="flex items-start gap-2">
                                             <Activity size={16} className="mt-0.5 text-blue-500 shrink-0"/>
-                                            <span><strong>成長 (Growth):</strong> 資産価値の上昇率（プラスもマイナスもある）。</span>
-                                        </li>
-                                        <li className="flex items-start gap-2">
-                                            <ShieldAlert size={16} className="mt-0.5 text-red-500 shrink-0"/>
-                                            <span><strong>リスク (Risk):</strong> この数値が高いほど、暴落イベント（資産消失）の確率が上がります。</span>
+                                            <span><strong>変動:</strong> リターンの振れ幅。大きいほどハイリスク・ハイリターン。</span>
                                         </li>
                                     </ul>
                                 </div>
@@ -521,8 +466,8 @@
             const [balance, setBalance] = useState(1000000);
             const [turn, setTurn] = useState(1);
             const [maxTurns, setMaxTurns] = useState(null);
-            const [regions, setRegions] = useState(INITIAL_REGIONS);
-            const [allocations, setAllocations] = useState({ USA: 25, JPN: 25, EU: 25, EM: 25 });
+            const [funds, setFunds] = useState(INITIAL_FUNDS);
+            const [allocations, setAllocations] = useState({ A: 34, B: 33, C: 33 });
             const [history, setHistory] = useState([{ turn: 0, balance: 1000000 }]);
             const [currentEvent, setCurrentEvent] = useState(null);
             const [logs, setLogs] = useState([]);
@@ -577,14 +522,14 @@
                     lastDiff,
                     turnLog,
                     randomEvent,
-                    newRegions
-                } = calculateNextTurn(balance, allocations, regions, turn);
+                    newFunds
+                } = calculateNextTurn(balance, allocations, funds, turn);
 
                 setBalance(newBalance);
                 setLastDiff(lastDiff);
                 setHistory([...history, { turn: turn, balance: newBalance }]);
                 setCurrentEvent(randomEvent);
-                setRegions(newRegions);
+                setFunds(newFunds);
                 setTurn(turn + 1);
                 
                 const profitText = lastDiff > 0 ? `+$${lastDiff.toLocaleString()}` : `-$${Math.abs(lastDiff).toLocaleString()}`;
@@ -592,7 +537,7 @@
             };
 
             const autoBalance = () => {
-                setAllocations({ USA: 25, JPN: 25, EU: 25, EM: 25 });
+                setAllocations({ A: 34, B: 33, C: 33 });
             };
 
             const startGame = (turns) => {
@@ -604,8 +549,8 @@
                 setGameState('title');
                 setBalance(1000000);
                 setTurn(1);
-                setRegions(INITIAL_REGIONS);
-                setAllocations({ USA: 25, JPN: 25, EU: 25, EM: 25 });
+                setFunds(INITIAL_FUNDS);
+                setAllocations({ A: 34, B: 33, C: 33 });
                 setHistory([{ turn: 0, balance: 1000000 }]);
                 setCurrentEvent(null);
                 setLogs([]);
@@ -619,7 +564,7 @@
                         balance={balance}
                         turn={turn}
                         maxTurns={maxTurns}
-                        regions={regions}
+                        funds={funds}
                         allocations={allocations}
                         history={history}
                         currentEvent={currentEvent}
