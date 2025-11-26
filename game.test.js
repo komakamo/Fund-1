@@ -21,7 +21,7 @@ describe('Global Capital Flow Game', () => {
         expect(typeof result.newBalance).toBe('number');
         expect(typeof result.lastDiff).toBe('number');
         expect(result.turnLog).toBeInstanceOf(Array);
-        expect(result.randomEvent).toBeNull();
+        // expect(result.randomEvent).toBeNull(); // This is no longer guaranteed
         expect(result.newFunds).toBeDefined();
     });
 
@@ -37,12 +37,18 @@ describe('Global Capital Flow Game', () => {
     });
 
     test('should generate a loss when conditions are unfavorable', () => {
-        jest.spyOn(Math, 'random').mockReturnValue(0.1); // Low random value for low/negative returns
+        jest.spyOn(Math, 'random')
+            .mockReturnValueOnce(0.1) // Fund A sign
+            .mockReturnValueOnce(0.1) // Fund A value
+            .mockReturnValueOnce(0.1) // Fund B
+            .mockReturnValueOnce(0.1) // Fund C
+            .mockReturnValueOnce(0.9) // Event trigger check
 
         const result = calculateNextTurn(balance, allocations, funds, turn);
 
         expect(result.newBalance).toBeLessThan(balance);
         expect(result.lastDiff).toBeLessThan(0);
+        expect(result.randomEvent).toBeNull();
 
         jest.spyOn(Math, 'random').mockRestore();
     });
@@ -94,5 +100,38 @@ describe('Global Capital Flow Game', () => {
         expect(result.lastDiff).toBeCloseTo(expectedProfit, 0);
 
         jest.spyOn(Math, 'random').mockRestore();
+    });
+
+    test('should trigger and apply a random event', () => {
+        const allocations = { A: 0, B: 0, C: 100 };
+
+        // --- Phase 1: Calculate the expected balance *before* the event ---
+        const preEventMock = jest.spyOn(Math, 'random').mockReturnValue(0.5);
+        const preEventResult = calculateNextTurn(balance, allocations, funds, turn);
+        const balanceAfterTurn = preEventResult.newBalance;
+        preEventMock.mockRestore();
+
+        // --- Phase 2: Run the final calculation with a mock that triggers the event ---
+        const finalMock = jest.spyOn(Math, 'random')
+            .mockReturnValueOnce(0.5) // Fund A sign
+            .mockReturnValueOnce(0.5) // Fund A value
+            .mockReturnValueOnce(0.5) // Fund B
+            .mockReturnValueOnce(0.5) // Fund C
+            .mockReturnValueOnce(0.1) // Event trigger
+            .mockReturnValueOnce(0.25) // Event selection
+            .mockReturnValue(0.5);    // Event effect (e.g. for financial緩和)
+
+        const finalResult = calculateNextTurn(balance, allocations, funds, turn);
+
+        const investedInC = balanceAfterTurn;
+        const expectedLoss = investedInC * 0.20;
+        const expectedFinalBalance = balanceAfterTurn - expectedLoss;
+
+        expect(finalResult.randomEvent).not.toBeNull();
+        expect(finalResult.randomEvent.name).toBe("ITバブル崩壊");
+        expect(finalResult.newBalance).toBe(Math.floor(expectedFinalBalance));
+        expect(finalResult.turnLog.some(log => log.type === 'event')).toBe(true);
+
+        finalMock.mockRestore();
     });
 });

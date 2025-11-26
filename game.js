@@ -29,13 +29,22 @@ function calculateNextTurn(balance, allocations, funds, turn) {
         turnProfit += profit;
     });
 
-    const newBalance = Math.floor(balance + turnProfit);
+    let newBalance = Math.floor(balance + turnProfit);
     const lastDiff = Math.floor(turnProfit);
 
-    // Events are removed for now.
-    const randomEvent = null;
-    const newFunds = JSON.parse(JSON.stringify(funds));
+    let randomEvent = null;
+    let newFunds = JSON.parse(JSON.stringify(funds));
 
+    if (Math.random() < 0.3) { // 30% chance of an event
+        const event = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+        randomEvent = event;
+        const eventResult = event.effect(newFunds, newBalance, allocations);
+        newFunds = eventResult.funds;
+        newBalance = Math.floor(eventResult.balance);
+        if (eventResult.log) {
+            turnLog.push({ type: 'event', text: eventResult.log, turn: turn });
+        }
+    }
 
     return {
         newBalance,
@@ -46,4 +55,53 @@ function calculateNextTurn(balance, allocations, funds, turn) {
     }
 }
 
-export { INITIAL_FUNDS, calculateNextTurn };
+const EVENTS = [
+    {
+        name: "世界的金融緩和",
+        description: "世界的金融緩和で市場全体が活気づき、全ファンドの価値が5〜10%上昇しました。",
+        effect: (funds, balance, allocations) => {
+            const newFunds = JSON.parse(JSON.stringify(funds));
+            let totalBoost = 0;
+            Object.keys(newFunds).forEach(key => {
+                const investedAmount = balance * (allocations[key] / 100);
+                const boostPercent = (Math.random() * 5 + 5) / 100; // 5-10%
+                totalBoost += investedAmount * boostPercent;
+            });
+            return { funds: newFunds, balance: balance + totalBoost, log: "世界的金融緩和により、市場全体が活気づいた！" };
+        }
+    },
+    {
+        name: "ITバブル崩壊",
+        description: "ITバブルが崩壊し、ハイテク中心のファンドCに投資した資産が20%減少しました。",
+        effect: (funds, balance, allocations) => {
+            const newFunds = JSON.parse(JSON.stringify(funds));
+            const investedInC = balance * (allocations.C / 100);
+            const loss = investedInC * 0.20; // 20% loss on the amount invested in C
+            return { funds: newFunds, balance: balance - loss, log: "ITバブル崩壊によりファンドCが打撃を受けた！" };
+        }
+    },
+    {
+        name: "円安急進",
+        description: "円安が急進し、海外資産比率が高いファンドBとCに投資した資産が15%増加しました。",
+        effect: (funds, balance, allocations) => {
+            const newFunds = JSON.parse(JSON.stringify(funds));
+            const investedInB = balance * (allocations.B / 100);
+            const investedInC = balance * (allocations.C / 100);
+            const gain = (investedInB + investedInC) * 0.15; // 15% gain on B and C
+            return { funds: newFunds, balance: balance + gain, log: "円安により海外資産ファンドが急騰！" };
+        }
+    },
+    {
+        name: "ファンドC担当者交代",
+        description: "ファンドCの運用担当者が交代し、よりハイリスク・ハイリターンな運用方針になりました。",
+        effect: (funds, balance, allocations) => {
+            const newFunds = JSON.parse(JSON.stringify(funds));
+            newFunds.C.fluctuation.min = -20;
+            newFunds.C.fluctuation.max = 60;
+            newFunds.C.description = "担当者交代で超ハイリスクに。天国か地獄か。";
+            return { funds: newFunds, balance: balance, log: "ファンドCの担当者が交代し、ハイリスク・ハイリターンに！" };
+        }
+    }
+];
+
+export { INITIAL_FUNDS, calculateNextTurn, EVENTS };
