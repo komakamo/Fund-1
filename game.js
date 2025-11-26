@@ -46,4 +46,10 @@ function calculateNextTurn(balance, allocations, funds, turn) {
     }
 }
 
-export { INITIAL_FUNDS, calculateNextTurn };
+const CRAFTING_RECIPES = [
+    { id: 'unlock_A', name: 'Unlock Advanced Fund A', description: 'Unlocks a new, more advanced version of Fund A.', cost: 1200000 },
+    { id: 'unlock_B', name: 'Unlock Advanced Fund B', description: 'Unlocks a new, more advanced version of Fund B.', cost: 1500000 },
+    { id: 'analyst_report', name: 'Purchase Analyst Report', description: 'Get a tip for the next turn.', cost: 50000 },
+];
+
+export { INITIAL_FUNDS, calculateNextTurn, CRAFTING_RECIPES };

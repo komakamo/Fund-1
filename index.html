@@ -59,9 +59,9 @@
         import { 
             LineChart, ArrowRight, TrendingUp, TrendingDown, AlertTriangle, 
             Info, Globe, RefreshCw, BookOpen, Activity, PieChart, ShieldAlert, 
-            Landmark, Briefcase, Moon, Sun, DollarSign
+            Landmark, Briefcase, Moon, Sun, DollarSign, Volume2, VolumeX, Hammer
         } from 'lucide-react';
-        import { INITIAL_FUNDS, calculateNextTurn } from './game.js';
+        import { INITIAL_FUNDS, calculateNextTurn, CRAFTING_RECIPES } from './game.js';
 
         // --- コンポーネント ---
 
@@ -265,9 +265,10 @@
 
         const GameScreen = ({
             balance, turn, maxTurns, funds, allocations, history, currentEvent, logs, lastDiff, isDarkMode, setIsDarkMode,
-            handleAllocate, nextTurn, autoBalance, totalAllocation
+            handleAllocate, nextTurn, autoBalance, totalAllocation, isMuted, setIsMuted, recipes, onCraft, craftedRecipes, newlyCraftable, markNewRecipesAsSeen
         }) => {
              const [showTutorial, setShowTutorial] = useState(true);
+             const [showCraftingMenu, setShowCraftingMenu] = useState(false);
 
             return (
                 <div className="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-800 dark:text-gray-100 font-sans p-2 md:p-6 transition-colors duration-300">
@@ -289,6 +290,12 @@
                                 className="p-2 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
                             >
                                 {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                            </button>
+                             <button
+                                onClick={() => setIsMuted(!isMuted)}
+                                className="p-2 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
                             </button>
 
                             <div className="text-right">
@@ -325,6 +332,11 @@
                                         <PieChart className="text-gray-400 dark:text-gray-500"/>
                                         Portfolio Allocation
                                     </h2>
+                                     <button onClick={() => { setShowCraftingMenu(true); markNewRecipesAsSeen(); }} className="relative flex items-center gap-2 text-sm font-bold text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline">
+                                        <Hammer size={16}/>
+                                        Crafting
+                                        {newlyCraftable.length > 0 && <span className="absolute -top-1 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">{newlyCraftable.length}</span>}
+                                     </button>
                                     <div className="flex gap-4 items-center">
                                         <div className={`px-4 py-2 rounded-full border ${totalAllocation === 100 ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400' : 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400'} font-bold text-sm flex items-center gap-2 transition-all`}>
                                             TOTAL: <span className="text-lg">{totalAllocation}%</span>
@@ -458,6 +470,16 @@
                             </div>
                         </div>
                     )}
+
+                    <CraftingMenu
+                        show={showCraftingMenu}
+                        onClose={() => setShowCraftingMenu(false)}
+                        recipes={recipes}
+                        balance={balance}
+                        onCraft={onCraft}
+                        craftedRecipes={craftedRecipes}
+                        newlyCraftable={newlyCraftable}
+                    />
                 </div>
             );
         }
@@ -475,6 +497,33 @@
             const [isDarkMode, setIsDarkMode] = useState(false);
             const [highScore, setHighScore] = useState(null);
             const [isNewHighScore, setIsNewHighScore] = useState(false);
+            const [isMuted, setIsMuted] = useState(false);
+            const [audio] = useState(new Audio('assets/bgm_day.mp3'));
+            const [craftedRecipes, setCraftedRecipes] = useState([]);
+            const [seenRecipes, setSeenRecipes] = useState([]);
+            const [newlyCraftable, setNewlyCraftable] = useState([]);
+
+            useEffect(() => {
+                const previouslyCraftable = CRAFTING_RECIPES.filter(r => (balance - lastDiff) >= r.cost).map(r => r.id);
+                const nowCraftable = CRAFTING_RECIPES.filter(r => balance >= r.cost).map(r => r.id);
+                const newRecipes = nowCraftable.filter(id => !previouslyCraftable.includes(id) && !seenRecipes.includes(id));
+                if (newRecipes.length > 0) {
+                    setNewlyCraftable(prev => [...new Set([...prev, ...newRecipes])]);
+                }
+            }, [balance, lastDiff]);
+
+            useEffect(() => {
+                audio.loop = true;
+                if (gameState === 'playing' && !isMuted) {
+                    if (turn % 2 !== 0) { // Day
+                        audio.play();
+                    } else { // Night
+                        audio.pause();
+                    }
+                } else {
+                    audio.pause();
+                }
+            }, [gameState, turn, isMuted]);
 
             useEffect(() => {
                 const savedScore = localStorage.getItem('highScore');
@@ -555,6 +604,20 @@
                 setCurrentEvent(null);
                 setLogs([]);
                 setLastDiff(0);
+                setCraftedRecipes([]);
+                setSeenRecipes([]);
+            };
+
+            const handleCraft = (recipe) => {
+                if (balance >= recipe.cost && !craftedRecipes.includes(recipe.id)) {
+                    setBalance(balance - recipe.cost);
+                    setCraftedRecipes([...craftedRecipes, recipe.id]);
+                }
+            };
+
+            const markNewRecipesAsSeen = () => {
+                setSeenRecipes(prev => [...new Set([...prev, ...newlyCraftable])]);
+                setNewlyCraftable([]);
             };
 
             return (
@@ -576,11 +639,63 @@
                         nextTurn={nextTurn}
                         autoBalance={autoBalance}
                         totalAllocation={totalAllocation}
+                        isMuted={isMuted}
+                        setIsMuted={setIsMuted}
+                        recipes={CRAFTING_RECIPES}
+                        onCraft={handleCraft}
+                        craftedRecipes={craftedRecipes}
+                        newlyCraftable={newlyCraftable}
+                        markNewRecipesAsSeen={markNewRecipesAsSeen}
                     />}
                     {gameState === 'result' && <ResultScreen finalBalance={balance} onRestart={restartGame} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} isNewHighScore={isNewHighScore} />}
                 </div>
             );
         }
+
+        const CraftingMenu = ({ show, onClose, recipes, balance, onCraft, craftedRecipes, newlyCraftable }) => {
+            const [currentTab, setCurrentTab] = useState('all');
+            if (!show) return null;
+
+            return (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-slate-900 max-w-2xl w-full p-6 shadow-2xl rounded-2xl border border-gray-200 dark:border-slate-700 relative animate-pop-in">
+                        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white">✕</button>
+                        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Crafting</h2>
+                        <div className="flex border-b border-gray-200 dark:border-slate-700 mb-4">
+                            <button onClick={() => setCurrentTab('all')} className={`px-4 py-2 font-bold ${currentTab === 'all' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500'}`}>All</button>
+                            <button onClick={() => setCurrentTab('craftable')} className={`px-4 py-2 font-bold ${currentTab === 'craftable' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500'}`}>Craftable</button>
+                        </div>
+                        <div className="space-y-4">
+                            {recipes.filter(r => currentTab === 'all' || balance >= r.cost).map(recipe => {
+                                const canCraft = balance >= recipe.cost;
+                                const isCrafted = craftedRecipes.includes(recipe.id);
+                                return (
+                                    <div key={recipe.id} className={`p-4 rounded-lg border ${isCrafted ? 'bg-gray-100 dark:bg-slate-800' : 'bg-white dark:bg-slate-800/50'}`}>
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                 <h3 className="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">
+                                                    {recipe.name}
+                                                    {newlyCraftable.includes(recipe.id) && <span className="text-xs font-bold text-white bg-red-500 px-2 py-0.5 rounded-full">NEW</span>}
+                                                 </h3>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400">{recipe.description}</p>
+                                                <p className="text-sm font-bold text-amber-600 dark:text-amber-400 mt-1">Cost: ${recipe.cost.toLocaleString()}</p>
+                                            </div>
+                                            <button
+                                                onClick={() => onCraft(recipe)}
+                                                disabled={!canCraft || isCrafted}
+                                                className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${!canCraft || isCrafted ? 'bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
+                                            >
+                                                {isCrafted ? 'Crafted' : 'Craft'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
 
         const root = createRoot(document.getElementById('root'));
         root.render(<App />);
