@@ -1,17 +1,66 @@
 const INITIAL_FUNDS = {
     A: { id: 'A', name: '安定型', expectedReturn: 3, fluctuation: { min: 1, max: 5 }, description: '儲かる確率は高いけど伸び幅は小さい。', color: 'blue' },
     B: { id: 'B', name: 'バランス型', expectedReturn: 6, fluctuation: { min: 0, max: 15 }, description: '安定と成長のバランス。', color: 'indigo' },
-    C: { id: 'C', name: 'ギャンブル型', expectedReturn: 12, fluctuation: { min: -30, max: 40 }, description: '当たればデカいけど死ぬときは死ぬ。', color: 'amber' }
+    C: { id: 'C', name: 'ギャンブル型', expectedReturn: 12, fluctuation: { min: -30, max: 40 }, description: '当たればデカいけど死ぬときは死ぬ。', color: 'amber' },
+    D: { id: 'D', name: 'インデックス型', expectedReturn: 5, fluctuation: { min: -10, max: 12 }, description: '市場全体に連動する。低コストで分散投資。', color: 'teal', unlocked: false }
 };
+
+const ACHIEVEMENTS = {
+    '2_million_club': {
+        id: '2_million_club',
+        name: '駆け出しファンドマネージャー',
+        description: '初めて資産が200万円に到達する',
+        condition: (history, allocations, turn) => history.some(h => h.balance >= 2000000)
+    },
+    'insane_gambler': {
+        id: 'insane_gambler',
+        name: '狂気の投資家',
+        description: 'ファンドCに100%の状態で10ターン経過',
+        condition: (history, allocations, turn) => allocations.C === 100 && turn > 10
+    },
+    'perfect_game': {
+        id: 'perfect_game',
+        name: '神タイミング',
+        description: '一度も損失を出さずに10ターン以上クリア',
+        condition: (history, allocations, turn, maxTurns, finalBalance) => {
+            if (!maxTurns || turn <= maxTurns) return false;
+            const initialBalance = history[0].balance;
+            // Check if every turn's balance is greater than or equal to the previous turn's balance
+            for (let i = 1; i < history.length; i++) {
+                if (history[i].balance < history[i-1].balance) {
+                    return false;
+                }
+            }
+            return turn > 10;
+        }
+    }
+};
+
+const UNLOCKABLES = {
+    'fund_d': {
+        id: 'fund_d',
+        name: '新しいファンドD',
+        description: '資産200万円達成で解禁',
+        condition: (finalBalance) => finalBalance >= 2000000
+    }
+};
+
 
 function calculateNextTurn(balance, allocations, funds, turn) {
     let turnProfit = 0;
     let turnLog = [];
     const fundDetails = {};
 
-    Object.keys(funds).forEach(key => {
+    Object.keys(allocations).forEach(key => {
         const fund = funds[key];
+        if (!fund) return;
+
         const investedAmount = balance * (allocations[key] / 100);
+
+        if (investedAmount === 0) {
+            fundDetails[key] = { name: fund.name, profit: 0, returnRate: 0.0 };
+            return;
+        }
 
         let fluctuation;
         if (key === 'A') {
@@ -112,4 +161,4 @@ const EVENTS = [
     }
 ];
 
-export { INITIAL_FUNDS, calculateNextTurn, EVENTS };
+export { INITIAL_FUNDS, calculateNextTurn, EVENTS, ACHIEVEMENTS, UNLOCKABLES };
