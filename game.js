@@ -7,6 +7,7 @@ const INITIAL_FUNDS = {
 function calculateNextTurn(balance, allocations, funds, turn) {
     let turnProfit = 0;
     let turnLog = [];
+    const fundDetails = {};
 
     Object.keys(funds).forEach(key => {
         const fund = funds[key];
@@ -27,6 +28,12 @@ function calculateNextTurn(balance, allocations, funds, turn) {
 
         const profit = investedAmount * rateOfReturn;
         turnProfit += profit;
+
+        fundDetails[key] = {
+            name: fund.name,
+            profit: Math.floor(profit),
+            returnRate: parseFloat((rateOfReturn * 100).toFixed(1))
+        };
     });
 
     let newBalance = Math.floor(balance + turnProfit);
@@ -51,7 +58,8 @@ function calculateNextTurn(balance, allocations, funds, turn) {
         lastDiff,
         turnLog,
         randomEvent,
-        newFunds
+        newFunds,
+        fundDetails
     }
 }
 

@@ -15,14 +15,15 @@ describe('Global Capital Flow Game', () => {
         turn = 1;
     });
 
-    test('should calculate next turn without errors', () => {
+    test('should calculate next turn without errors and with fundDetails', () => {
         const result = calculateNextTurn(balance, allocations, funds, turn);
         expect(result).toBeDefined();
         expect(typeof result.newBalance).toBe('number');
         expect(typeof result.lastDiff).toBe('number');
         expect(result.turnLog).toBeInstanceOf(Array);
-        // expect(result.randomEvent).toBeNull(); // This is no longer guaranteed
         expect(result.newFunds).toBeDefined();
+        expect(result.fundDetails).toBeDefined();
+        expect(Object.keys(result.fundDetails).length).toBe(3);
     });
 
     test('should generate a positive profit when conditions are favorable', () => {
@@ -133,5 +134,44 @@ describe('Global Capital Flow Game', () => {
         expect(finalResult.turnLog.some(log => log.type === 'event')).toBe(true);
 
         finalMock.mockRestore();
+    });
+
+    test('should return correct fundDetails object', () => {
+        allocations = { A: 50, B: 50, C: 0 };
+        jest.spyOn(Math, 'random')
+            .mockReturnValueOnce(0.5) // Fund A value
+            .mockReturnValueOnce(0.7) // Fund A sign (<0.8 -> positive)
+            .mockReturnValueOnce(0.8) // Fund B value
+            .mockReturnValue(0.9);    // No event
+
+        const result = calculateNextTurn(balance, allocations, funds, turn);
+
+        const fundA = funds.A;
+        const investedA = balance * 0.5;
+        const rangeA = fundA.fluctuation.max - fundA.fluctuation.min;
+        const valueA = 0.5 * rangeA + fundA.fluctuation.min;
+        const expectedFluctuationA = valueA;
+        const expectedReturnRateA = (fundA.expectedReturn + expectedFluctuationA);
+        const expectedProfitA = investedA * (expectedReturnRateA / 100);
+
+        const fundB = funds.B;
+        const investedB = balance * 0.5;
+        const expectedFluctuationB = (0.8 * fundB.fluctuation.max * 2) - fundB.fluctuation.max;
+        const expectedReturnRateB = (fundB.expectedReturn + expectedFluctuationB);
+        const expectedProfitB = investedB * (expectedReturnRateB / 100);
+
+
+        expect(result.fundDetails).toBeDefined();
+        expect(result.fundDetails.A.name).toBe('安定型');
+        expect(result.fundDetails.A.profit).toBe(Math.floor(expectedProfitA));
+        expect(result.fundDetails.A.returnRate).toBeCloseTo(expectedReturnRateA);
+
+        expect(result.fundDetails.B.name).toBe('バランス型');
+        expect(result.fundDetails.B.profit).toBe(Math.floor(expectedProfitB));
+        expect(result.fundDetails.B.returnRate).toBeCloseTo(expectedReturnRateB);
+
+        expect(result.fundDetails.C.profit).toBe(0);
+
+        jest.spyOn(Math, 'random').mockRestore();
     });
 });

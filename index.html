@@ -17,6 +17,9 @@
                         'slide-in': 'slide-in 0.3s ease-out forwards',
                         'fade-in': 'fade-in 0.5s ease-out forwards',
                         'pop-in': 'pop-in 0.3s ease-out forwards',
+                        'pop-and-fade': 'pop-and-fade 1.5s ease-out forwards',
+                        'shake-horizontal': 'shake-horizontal 0.4s cubic-bezier(.36,.07,.19,.97) both',
+                        'poyo': 'poyo 0.5s ease-out',
                     },
                     keyframes: {
                         'slide-in': {
@@ -30,7 +33,21 @@
                         'pop-in': {
                             '0%': { opacity: '0', transform: 'scale(0.95)' },
                             '100%': { opacity: '1', transform: 'scale(1)' },
-                        }
+                        },
+                        'pop-and-fade': {
+                            '0%': { transform: 'translateY(0) scale(1)', opacity: '1' },
+                            '20%': { transform: 'translateY(-20px) scale(1.1)', opacity: '1' },
+                            '100%': { transform: 'translateY(-40px) scale(1.1)', opacity: '0' },
+                        },
+                        'shake-horizontal': {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '10%, 30%, 50%, 70%': { transform: 'translateX(-5px)' },
+                            '20%, 40%, 60%, 80%': { transform: 'translateX(5px)' },
+                        },
+                        'poyo': {
+                            '0%, 100%': { transform: 'scale(1)' },
+                            '50%': { transform: 'scale(1.1)' },
+                        },
                     }
                 }
             }
@@ -49,15 +66,29 @@
     </script>
     <!-- Babel for JSX compilation in browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Google Fonts: Noto Sans JP -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+        }
+    </style>
 </head>
 <body class="bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
-        import React, { useState, useEffect } from 'react';
+        import React, { useState, useEffect, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
         import { 
-            LineChart, ArrowRight, TrendingUp, TrendingDown, AlertTriangle, 
+            LineChart as LineChartIcon, ArrowRight, TrendingUp, TrendingDown, AlertTriangle,
             Info, Globe, RefreshCw, BookOpen, Activity, PieChart, ShieldAlert, 
             Landmark, Briefcase, Moon, Sun, DollarSign
         } from 'lucide-react';
@@ -65,11 +96,88 @@
 
         // --- コンポーネント ---
 
+        const LineChart = ({ history, isDarkMode }) => {
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            useEffect(() => {
+                if (chartRef.current) {
+                    const ctx = chartRef.current.getContext('2d');
+                    const labels = history.map(h => `T${h.turn}`);
+                    const data = history.map(h => h.balance);
+
+                    const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+                    const textColor = isDarkMode ? '#cbd5e1' : '#475569';
+
+                    if (chartInstance.current) {
+                        chartInstance.current.data.labels = labels;
+                        chartInstance.current.data.datasets[0].data = data;
+                        chartInstance.current.options.scales.x.ticks.color = textColor;
+                        chartInstance.current.options.scales.y.ticks.color = textColor;
+                        chartInstance.current.options.scales.x.grid.color = gridColor;
+                        chartInstance.current.options.scales.y.grid.color = gridColor;
+                        chartInstance.current.update();
+                    } else {
+                        chartInstance.current = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: '資産推移',
+                                    data: data,
+                                    borderColor: '#3b82f6',
+                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                    fill: true,
+                                    tension: 0.3,
+                                    pointBackgroundColor: '#3b82f6',
+                                    pointRadius: 4,
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: (context) => `$${context.parsed.y.toLocaleString()}`
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: false,
+                                        ticks: {
+                                            callback: (value) => `$${(value/1000)}k`,
+                                            color: textColor,
+                                        },
+                                        grid: { color: gridColor }
+                                    },
+                                    x: {
+                                        ticks: { color: textColor },
+                                        grid: { color: gridColor }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+                 return () => {
+                    if(chartInstance.current) {
+                        chartInstance.current.destroy();
+                        chartInstance.current = null;
+                    }
+                };
+            }, [history, isDarkMode]);
+
+            return <canvas ref={chartRef}></canvas>;
+        };
+
         const EventNotification = ({ event }) => {
             if (!event) return null;
 
             return (
-                <div className="bg-amber-50 dark:bg-amber-900/20 p-5 rounded-xl border-2 border-amber-200 dark:border-amber-800 mb-6 animate-fade-in shadow-md">
+                <div className="bg-amber-50 dark:bg-amber-900/20 p-5 rounded-xl border-2 border-amber-200 dark:border-amber-800 animate-fade-in shadow-md">
                     <h3 className="text-amber-900 dark:text-amber-300 font-black text-lg mb-2 flex items-center gap-2">
                         <AlertTriangle size={20} />
                         RANDOM EVENT
@@ -96,25 +204,25 @@
                     border: 'border-blue-200 dark:border-blue-800', 
                     text: 'text-blue-700 dark:text-blue-300', 
                     bg: 'bg-blue-50 dark:bg-blue-900/30', 
-                    accent: 'bg-blue-600 dark:bg-blue-500' 
+                    accent: 'accent-blue-600 dark:accent-blue-500'
                 },
                 indigo: { 
                     border: 'border-indigo-200 dark:border-indigo-800', 
                     text: 'text-indigo-700 dark:text-indigo-300', 
                     bg: 'bg-indigo-50 dark:bg-indigo-900/30', 
-                    accent: 'bg-indigo-600 dark:bg-indigo-500' 
+                    accent: 'accent-indigo-600 dark:accent-indigo-500'
                 },
                 amber: { 
                     border: 'border-amber-200 dark:border-amber-800', 
                     text: 'text-amber-700 dark:text-amber-300', 
                     bg: 'bg-amber-50 dark:bg-amber-900/30', 
-                    accent: 'bg-amber-600 dark:bg-amber-500' 
+                    accent: 'accent-amber-600 dark:accent-amber-500'
                 },
             };
             const theme = colors[fund.color];
 
             return (
-                <div className={`group relative bg-white dark:bg-slate-800 rounded-xl border-2 ${theme.border} p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1`}>
+                <div className={`group relative bg-white dark:bg-slate-800 rounded-xl border-2 ${theme.border} p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 h-full flex flex-col`}>
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-full ${theme.bg} ${theme.text} flex items-center justify-center font-bold text-lg shadow-sm`}>
@@ -143,7 +251,7 @@
                         </div>
                     </div>
 
-                    <div className="pt-2">
+                    <div className="pt-2 mt-auto">
                         <div className="flex justify-between text-xs text-gray-500 mb-1">
                             <span>Allocation</span>
                             <span>Max: {maxAllocatable}%</span>
@@ -154,7 +262,7 @@
                             max="100" 
                             value={allocation} 
                             onChange={handleChange}
-                            className={`w-full h-2 bg-gray-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-gray-800 dark:accent-gray-200 hover:accent-gray-600`}
+                            className={`w-full h-2 bg-gray-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer ${theme.accent}`}
                         />
                         <p className="mt-3 text-xs text-gray-500 dark:text-gray-400 leading-relaxed h-[3em] overflow-hidden">
                             {fund.description}
@@ -241,8 +349,16 @@
             return { name: "破産", color: "text-red-500", size: "text-2xl" };
         };
 
-        const ResultScreen = ({ finalBalance, onRestart, isDarkMode, setIsDarkMode, isNewHighScore }) => {
+        const ResultScreen = ({ finalBalance, onRestart, isDarkMode, setIsDarkMode, isNewHighScore, history }) => {
             const rank = getRank(finalBalance);
+            const initialBalance = history[0]?.balance || 1000000;
+            const finalYield = ((finalBalance - initialBalance) / initialBalance) * 100;
+
+            const maxDrawdown = history.reduce((maxDD, current, i, arr) => {
+                const peak = Math.max(...arr.slice(0, i + 1).map(h => h.balance));
+                const drawdown = (peak - current.balance) / peak;
+                return Math.max(maxDD, drawdown);
+            }, 0);
 
             return (
                 <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors duration-300">
@@ -263,14 +379,31 @@
                             </p>
                         </div>
 
-                        <div className="bg-gray-100 dark:bg-slate-800/50 rounded-xl p-6 my-8">
+                         <div className="bg-gray-100 dark:bg-slate-800/50 rounded-xl p-4 my-8 text-sm">
+                            <div className="grid grid-cols-2 gap-4 text-center">
+                                <div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">最終利回り</p>
+                                    <p className={`text-xl font-bold ${finalYield > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                                        {finalYield.toFixed(2)}%
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">最大ドローダウン</p>
+                                    <p className="text-xl font-bold text-red-500 dark:text-red-400">
+                                        {(maxDrawdown * 100).toFixed(2)}%
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-gray-100 dark:bg-slate-800/50 rounded-xl p-6">
                              <p className="text-lg text-gray-600 dark:text-gray-300 mb-2">Your rank is:</p>
                             <p className={`${rank.size} ${rank.color} font-black`}>{rank.name}</p>
                         </div>
 
                         <button
                             onClick={onRestart}
-                            className="w-full bg-gray-800 dark:bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-gray-700 dark:hover:bg-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform"
+                            className="mt-8 w-full bg-gray-800 dark:bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-gray-700 dark:hover:bg-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transform"
                         >
                             Play Again
                         </button>
@@ -280,79 +413,29 @@
         }
 
         const GameScreen = ({
-            balance, turn, maxTurns, funds, allocations, history, currentEvent, logs, lastDiff, isDarkMode, setIsDarkMode,
-            handleAllocate, nextTurn, autoBalance, totalAllocation
+            balance, turn, maxTurns, funds, allocations, history, currentEvent, logs, lastDiff, isDarkMode, setIsDarkMode, balanceAnimation,
+            handleAllocate, nextTurn, autoBalance, resetGame, totalAllocation
         }) => {
              const [showTutorial, setShowTutorial] = useState(true);
 
             return (
-                <div className="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-800 dark:text-gray-100 font-sans p-2 md:p-6 transition-colors duration-300">
-                    {/* Header */}
-                    <header className="mb-6 bg-white dark:bg-slate-900 border-b-4 border-gray-800 dark:border-slate-700 p-4 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-center transition-colors duration-300">
-                        <div className="flex items-center gap-4 mb-4 md:mb-0 w-full md:w-auto">
-                            <div className="bg-gray-800 dark:bg-slate-700 p-3 text-white rounded-lg">
-                                <Globe size={28} />
-                            </div>
-                            <div>
-                                <h1 className="text-xl md:text-2xl font-black tracking-tight text-gray-900 dark:text-white uppercase">Global Capital Flow</h1>
-                                <p className="text-xs md:text-sm font-medium text-gray-500 dark:text-gray-400">Financial Simulation Game</p>
-                            </div>
-                        </div>
+                <div className="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-800 dark:text-gray-100 font-sans p-4 md:p-6 transition-colors duration-300">
+                     <main className="max-w-7xl mx-auto space-y-6">
+                        <EventNotification event={currentEvent} />
 
-                        <div className="flex gap-4 md:gap-8 items-center w-full md:w-auto justify-between md:justify-end">
-                            <button
-                                onClick={() => setIsDarkMode(!isDarkMode)}
-                                className="p-2 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
-                            >
-                                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-                            </button>
-
-                            <div className="text-right">
-                                <div className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Total Assets</div>
-                                <div className={`text-2xl md:text-4xl font-black font-mono tracking-tighter ${lastDiff >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>
-                                    ${balance.toLocaleString()}
-                                </div>
-                                {turn > 1 && (
-                                    <div className={`text-xs md:text-sm font-bold flex justify-end items-center gap-1 ${lastDiff >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                        {lastDiff >= 0 ? <TrendingUp size={14}/> : <TrendingDown size={14}/>}
-                                        {lastDiff > 0 ? '+' : ''}{lastDiff.toLocaleString()}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="text-right border-l pl-4 md:pl-6 border-gray-200 dark:border-slate-700">
-                                <div className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Period</div>
-                                <div className="text-2xl md:text-4xl font-black font-mono text-gray-300 dark:text-slate-600">
-                                    {turn}
-                                    {maxTurns && <span className="text-lg text-gray-200 dark:text-slate-700">/{maxTurns}</span>}
-                                </div>
-                            </div>
-                        </div>
-                    </header>
-
-                    <main className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-                        {/* Left Column */}
-                        <div className="lg:col-span-8 space-y-6">
-                             <EventNotification event={currentEvent} />
-                            {/* Allocation Panel */}
-                            <div>
-                                <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Left Column: Sliders */}
+                            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-6 rounded-2xl shadow-lg">
+                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
                                     <h2 className="font-bold text-xl text-gray-800 dark:text-gray-100 flex items-center gap-2">
                                         <PieChart className="text-gray-400 dark:text-gray-500"/>
                                         Portfolio Allocation
                                     </h2>
-                                    <div className="flex gap-4 items-center">
-                                        <div className={`px-4 py-2 rounded-full border ${totalAllocation === 100 ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400' : 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400'} font-bold text-sm flex items-center gap-2 transition-all`}>
-                                            TOTAL: <span className="text-lg">{totalAllocation}%</span>
-                                            {totalAllocation !== 100 && <span className="text-xs opacity-75">({100 - totalAllocation > 0 ? `${100 - totalAllocation}% left` : `${totalAllocation - 100}% over`})</span>}
-                                        </div>
-                                        <button onClick={autoBalance} className="text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline">
-                                            Reset Default
-                                        </button>
+                                    <div className={`px-3 py-1 rounded-full border ${totalAllocation === 100 ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400' : 'bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400'} font-bold text-sm flex items-center gap-2 transition-all`}>
+                                        TOTAL: <span className="text-base">{totalAllocation}%</span>
                                     </div>
                                 </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {Object.values(funds).map(fund => (
                                         <FundCard
                                             key={fund.id}
@@ -363,11 +446,66 @@
                                         />
                                     ))}
                                 </div>
+                            </div>
 
-                                <button
+                            {/* Right Column: Stats & Graph */}
+                             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-6 rounded-2xl shadow-lg flex flex-col">
+                                <div className="grid grid-cols-2 gap-6 mb-4">
+                                    <div className="text-left relative">
+                                        <div className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Total Assets</div>
+                                        <div className={`text-5xl font-black font-mono tracking-tighter text-gray-800 dark:text-white transition-transform duration-500 ${balanceAnimation}`}>
+                                            ${balance.toLocaleString()}
+                                        </div>
+                                         {turn > 1 && lastDiff !== 0 && (
+                                            <div key={turn} className={`absolute -top-4 text-xl font-bold animate-pop-and-fade ${lastDiff >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                                {lastDiff > 0 ? '+' : ''}{lastDiff.toLocaleString()}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Period</div>
+                                        <div className="text-5xl font-black font-mono text-gray-300 dark:text-slate-600">
+                                            {turn}
+                                            {maxTurns && <span className="text-2xl text-gray-200 dark:text-slate-700">/{maxTurns}</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="chart-container" className="flex-grow h-64">
+                                    <LineChart history={history} isDarkMode={isDarkMode} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Bottom: Log & Actions */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl overflow-hidden flex flex-col h-64 shadow-lg">
+                                <div className="p-4 border-b border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50">
+                                    <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                        <Activity size={14}/> Turn Log
+                                    </h3>
+                                </div>
+                                <div className="overflow-y-auto flex-1 p-4 space-y-3">
+                                    {logs.length === 0 && (
+                                        <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 text-sm">
+                                            <p>Awaiting first turn...</p>
+                                        </div>
+                                    )}
+                                    {logs.map((log, i) => (
+                                        <div key={i} className={`text-sm animate-slide-in`}>
+                                            <p className="text-gray-600 dark:text-slate-300 leading-snug">
+                                                <span className="font-mono text-xs text-gray-400 dark:text-slate-500 mr-2">T{log.turn}:</span>
+                                                {log.text}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                             <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-6 rounded-2xl shadow-lg flex flex-col justify-center">
+                                 <button
                                     onClick={nextTurn}
                                     disabled={totalAllocation !== 100}
-                                    className={`w-full py-4 md:py-5 rounded-xl font-black text-lg tracking-wide uppercase transition-all duration-200
+                                    className={`w-full py-5 rounded-xl font-black text-lg tracking-wide uppercase transition-all duration-200
                                         ${totalAllocation === 100
                                             ? 'bg-gray-900 dark:bg-blue-600 text-white hover:bg-gray-800 dark:hover:bg-blue-500 shadow-xl hover:shadow-2xl hover:-translate-y-1'
                                             : 'bg-gray-200 dark:bg-slate-800 text-gray-400 dark:text-slate-600 cursor-not-allowed'}`}
@@ -378,62 +516,18 @@
                                         </span>
                                     ) : (
                                         <span className="flex items-center justify-center gap-3">
-                                            Adjust Allocation to 100%
+                                            Adjust Allocation to 100% ({100-totalAllocation}%)
                                         </span>
                                     )}
                                 </button>
-                            </div>
-                        </div>
-
-                        {/* Right Column */}
-                        <div className="lg:col-span-4 space-y-6">
-
-                            {/* Log */}
-                            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden flex flex-col h-[30rem] shadow-sm transition-colors duration-300">
-                                <div className="p-4 border-b border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50">
-                                    <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                                        <Activity size={14}/> Transaction Log
-                                    </h3>
-                                </div>
-                                <div className="overflow-y-auto flex-1 p-4 space-y-4">
-                                    {logs.length === 0 && (
-                                        <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 text-sm">
-                                            <div className="mb-2 opacity-50"><Briefcase size={32}/></div>
-                                            <p>No transactions yet.</p>
-                                            <p className="text-xs mt-1">Start by setting your portfolio.</p>
-                                        </div>
-                                    )}
-                                    {logs.map((log, i) => (
-                                        <div key={i} className={`text-sm pb-3 border-b border-gray-100 dark:border-slate-800 last:border-0 animate-slide-in`}>
-                                            <div className="flex justify-between items-start mb-1">
-                                                <span className={`font-bold ${log.type === 'summary' ? (log.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : 'text-orange-500 dark:text-orange-400'}`}>
-                                                    {log.type === 'summary' ? (log.profit >= 0 ? 'PROFIT' : 'LOSS') : 'RISK EVENT'}
-                                                </span>
-                                                <span className="text-xs text-gray-300 dark:text-slate-600 font-mono">Turn {log.turn}</span>
-                                            </div>
-                                            <p className="text-gray-600 dark:text-slate-400 leading-snug">{log.text}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Tips */}
-                            <div className="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-xl border border-blue-100 dark:border-blue-900/30 transition-colors duration-300">
-                                <h3 className="text-blue-900 dark:text-blue-300 font-bold mb-4 flex items-center gap-2">
-                                    <BookOpen size={18} />
-                                    Knowledge Base
-                                </h3>
-                                <div className="space-y-4 text-sm text-blue-800 dark:text-blue-200/70">
-                                    {[{title: "キャリートレード (Carry Trade)", content: "低金利通貨（日本円など）を借り、高金利通貨（ドルや新興国通貨）で運用する手法。"},
-                                        {title: "リスクオフ (Risk Off)", content: "市場の不安が高まった際、株式等のリスク資産を売り、国債等の安全資産へ資金を移す動き。"},
-                                        {title: "金利と債券価格", content: "金利が上がると、既存の債券の魅力が下がり価格は下落する（逆相関の関係）。"}
-                                    ].map((item, index) => (
-                                        <div key={index}>
-                                            <div className="font-bold mb-1 text-blue-900 dark:text-blue-300 border-b border-blue-200 dark:border-blue-800/50 pb-1 inline-block">{item.title}</div>
-                                            <p className="opacity-90 leading-relaxed text-xs">{item.content}</p>
-                                        </div>
-                                    ))}
-                                </div>
+                                 <div className="flex justify-center gap-6 mt-4">
+                                     <button onClick={autoBalance} className="text-sm font-bold text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline">
+                                        Reset Allocation
+                                    </button>
+                                    <button onClick={resetGame} className="text-sm font-bold text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 underline">
+                                        Restart Game
+                                    </button>
+                                 </div>
                             </div>
                         </div>
                     </main>
@@ -491,11 +585,16 @@
             const [isDarkMode, setIsDarkMode] = useState(false);
             const [highScore, setHighScore] = useState(null);
             const [isNewHighScore, setIsNewHighScore] = useState(false);
+            const [balanceAnimation, setBalanceAnimation] = useState('');
 
             useEffect(() => {
                 const savedScore = localStorage.getItem('highScore');
                 if (savedScore) {
                     setHighScore(parseInt(savedScore, 10));
+                }
+                 const savedTheme = localStorage.getItem('isDarkMode');
+                if (savedTheme) {
+                    setIsDarkMode(JSON.parse(savedTheme));
                 }
             }, []);
 
@@ -504,8 +603,10 @@
             useEffect(() => {
                 if (isDarkMode) {
                     document.documentElement.classList.add('dark');
+                    localStorage.setItem('isDarkMode', true);
                 } else {
                     document.documentElement.classList.remove('dark');
+                    localStorage.setItem('isDarkMode', false);
                 }
             }, [isDarkMode]);
 
@@ -538,7 +639,8 @@
                     lastDiff,
                     turnLog,
                     randomEvent,
-                    newFunds
+                    newFunds,
+                    fundDetails
                 } = calculateNextTurn(balance, allocations, funds, turn);
 
                 setBalance(newBalance);
@@ -547,9 +649,25 @@
                 setCurrentEvent(randomEvent);
                 setFunds(newFunds);
                 setTurn(turn + 1);
+
+                if (lastDiff > 0) {
+                    setBalanceAnimation('animate-poyo');
+                } else if (lastDiff < 0) {
+                    setBalanceAnimation('animate-shake-horizontal');
+                }
+                setTimeout(() => setBalanceAnimation(''), 500);
                 
+                const fundLogText = Object.values(fundDetails).map(d =>
+                    `${d.name} ${d.returnRate >= 0 ? '+' : ''}${d.returnRate.toFixed(1)}%`
+                ).join(', ');
                 const profitText = lastDiff > 0 ? `+$${lastDiff.toLocaleString()}` : `-$${Math.abs(lastDiff).toLocaleString()}`;
-                setLogs([{ type: 'summary', text: `Turn ${turn} 終了: 損益 ${profitText}`, profit: lastDiff, turn: turn }, ...turnLog, ...logs].slice(0, 8));
+                const newLog = `総資産 ${profitText} (${fundLogText})`;
+
+                setLogs([
+                    { turn: turn, text: newLog },
+                     ...turnLog.map(l => ({turn: l.turn, text: `EVENT: ${l.text}`})),
+                    ...logs
+                ].slice(0, 10));
             };
 
             const autoBalance = () => {
@@ -561,7 +679,7 @@
                 setGameState('playing');
             };
 
-            const restartGame = () => {
+            const resetGame = () => {
                 setGameState('title');
                 setBalance(1000000);
                 setTurn(1);
@@ -572,6 +690,12 @@
                 setLogs([]);
                 setLastDiff(0);
             };
+
+            const restartGame = () => {
+                 const currentHighScore = highScore;
+                 resetGame();
+                 setHighScore(currentHighScore);
+            }
 
             return (
                 <div className={isDarkMode ? 'dark' : ''}>
@@ -588,12 +712,14 @@
                         lastDiff={lastDiff}
                         isDarkMode={isDarkMode}
                         setIsDarkMode={setIsDarkMode}
+                        balanceAnimation={balanceAnimation}
                         handleAllocate={handleAllocate}
                         nextTurn={nextTurn}
                         autoBalance={autoBalance}
+                        resetGame={resetGame}
                         totalAllocation={totalAllocation}
                     />}
-                    {gameState === 'result' && <ResultScreen finalBalance={balance} onRestart={restartGame} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} isNewHighScore={isNewHighScore} />}
+                    {gameState === 'result' && <ResultScreen finalBalance={balance} onRestart={restartGame} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} isNewHighScore={isNewHighScore} history={history} />}
                 </div>
             );
         }
