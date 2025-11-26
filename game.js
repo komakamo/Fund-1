@@ -161,4 +161,45 @@ const EVENTS = [
     }
 ];
 
-export { INITIAL_FUNDS, calculateNextTurn, EVENTS, ACHIEVEMENTS, UNLOCKABLES };
+function analyzeInvestmentStyle(history) {
+    if (!history || history.length <= 1) {
+        return "プレイデータが不足しているため、分析できません。";
+    }
+
+    // Skip the initial state (turn 0) and filter out entries without allocations
+    const gameHistory = history.slice(1).filter(h => h.allocations);
+
+    if (gameHistory.length === 0) {
+        return "プレイデータが不足しているため、分析できません。";
+    }
+
+    const avgAllocations = { A: 0, B: 0, C: 0, D: 0 };
+    const numTurns = gameHistory.length;
+
+    for (const record of gameHistory) {
+        avgAllocations.A += record.allocations.A || 0;
+        avgAllocations.B += record.allocations.B || 0;
+        avgAllocations.C += record.allocations.C || 0;
+        avgAllocations.D += record.allocations.D || 0;
+    }
+
+    avgAllocations.A /= numTurns;
+    avgAllocations.B /= numTurns;
+    avgAllocations.C /= numTurns;
+    avgAllocations.D /= numTurns;
+
+    let analysis = '';
+    if (avgAllocations.C >= 60) {
+        analysis = "あなたのプレイは“ハイリスク・ハイリターン型”でした。実際の投資でこれをやると、大きなリターンを得られる可能性がある一方、資産を大きく失うリスクも伴います。";
+    } else if (avgAllocations.D >= 50) {
+        analysis = "インデックス型ファンドを多めにしたので、ボラティリティ（資産の上下の激しさ）が比較的低くなりました。市場全体に分散投資する堅実な戦略です。";
+    } else if (avgAllocations.A >= 60) {
+        analysis = "安定型ファンドを中心に、非常に堅実なポートフォリオを組みましたね。リスクを抑え、着実に資産を増やすことを目指すスタイルです。";
+    } else {
+        analysis = "様々なファンドにバランス良く投資する“バランス型”のプレイスタイルでした。リスクを分散しつつ、安定的な成長を目指す、多くの投資家が実践するスタイルです。";
+    }
+
+    return analysis;
+}
+
+export { INITIAL_FUNDS, calculateNextTurn, EVENTS, ACHIEVEMENTS, UNLOCKABLES, analyzeInvestmentStyle };
