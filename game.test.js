@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { INITIAL_FUNDS, calculateNextTurn, ACHIEVEMENTS, UNLOCKABLES } from './game.js';
+import { INITIAL_FUNDS, calculateNextTurn, ACHIEVEMENTS, UNLOCKABLES, analyzeInvestmentStyle } from './game.js';
 
 describe('Global Capital Flow Game', () => {
 
@@ -236,6 +236,67 @@ describe('Global Capital Flow Game', () => {
         test('should not unlock Fund D when final balance is less than 2,000,000', () => {
             const unlockable = UNLOCKABLES['fund_d'];
             expect(unlockable.condition(1999999)).toBe(false);
+        });
+    });
+
+    // --- Investment Style Analysis Tests ---
+
+    describe('Investment Style Analysis', () => {
+        test('should identify "High-Risk, High-Return" style', () => {
+            const history = [
+                { turn: 0, balance: 1000000 },
+                { turn: 1, balance: 1100000, allocations: { A: 10, B: 10, C: 80 } },
+                { turn: 2, balance: 1200000, allocations: { A: 10, B: 20, C: 70 } },
+            ];
+            const analysis = analyzeInvestmentStyle(history);
+            expect(analysis).toContain('ハイリスク・ハイリターン型');
+        });
+
+        test('should identify "Low-Volatility" style with Fund D', () => {
+            const history = [
+                { turn: 0, balance: 1000000 },
+                { turn: 1, balance: 1050000, allocations: { A: 10, B: 10, C: 20, D: 60 } },
+                { turn: 2, balance: 1100000, allocations: { A: 10, B: 10, C: 10, D: 70 } },
+            ];
+            const analysis = analyzeInvestmentStyle(history);
+            expect(analysis).toContain('インデックス型ファンドを多め');
+        });
+
+        test('should identify "Steady" style', () => {
+            const history = [
+                { turn: 0, balance: 1000000 },
+                { turn: 1, balance: 1020000, allocations: { A: 70, B: 20, C: 10 } },
+                { turn: 2, balance: 1040000, allocations: { A: 80, B: 10, C: 10 } },
+            ];
+            const analysis = analyzeInvestmentStyle(history);
+            expect(analysis).toContain('安定型ファンドを中心に');
+        });
+
+        test('should identify "Balanced" style for mixed allocations', () => {
+            const history = [
+                { turn: 0, balance: 1000000 },
+                { turn: 1, balance: 1050000, allocations: { A: 34, B: 33, C: 33 } },
+                { turn: 2, balance: 1100000, allocations: { A: 40, B: 40, C: 20 } },
+            ];
+            const analysis = analyzeInvestmentStyle(history);
+            expect(analysis).toContain('バランス型');
+        });
+
+        test('should return a default message for insufficient data', () => {
+            const history = [{ turn: 0, balance: 1000000 }];
+            const analysis = analyzeInvestmentStyle(history);
+            expect(analysis).toContain('データが不足');
+        });
+
+         test('should handle history with missing allocations', () => {
+            const history = [
+                { turn: 0, balance: 1000000 },
+                { turn: 1, balance: 1100000, allocations: { A: 10, B: 10, C: 80 } },
+                { turn: 2, balance: 1200000 }, // Missing allocations
+            ];
+            const analysis = analyzeInvestmentStyle(history);
+             // It should analyze based on the valid entry
+            expect(analysis).toContain('ハイリスク・ハイリターン型');
         });
     });
 });
