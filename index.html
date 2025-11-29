@@ -703,15 +703,24 @@
                 }
             };
 
-            const checkUnlocks = (currentBalance = balance) => {
-                const unlockedFunds = [];
+            const checkUnlocks = (currentBalance = balance, currentFunds = funds) => {
+                const savedUnlocks = new Set(JSON.parse(localStorage.getItem('unlockedFunds')) || []);
+                let updatedFunds = currentFunds;
+
                 if (UNLOCKABLES.fund_d.condition(currentBalance)) {
-                    setFunds(prevFunds => ({...prevFunds, D: {...prevFunds.D, unlocked: true}}));
-                    unlockedFunds.push('fund_d');
+                    savedUnlocks.add('fund_d');
+                    if (!currentFunds.D.unlocked) {
+                        updatedFunds = { ...currentFunds, D: { ...currentFunds.D, unlocked: true } };
+                    }
+                } else if (currentFunds.D?.unlocked) {
+                    savedUnlocks.add('fund_d');
                 }
-                 if (unlockedFunds.length > 0) {
-                    localStorage.setItem('unlockedFunds', JSON.stringify(unlockedFunds));
+
+                if (savedUnlocks.size > 0) {
+                    localStorage.setItem('unlockedFunds', JSON.stringify(Array.from(savedUnlocks)));
                 }
+
+                return updatedFunds;
             };
 
             useEffect(() => {
@@ -748,11 +757,13 @@
                 const nextTurnNumber = turn + 1;
                 const updatedHistory = [...history, { turn: turn, balance: newBalance, allocations: allocations }];
 
+                const fundsAfterUnlocks = checkUnlocks(newBalance, newFunds);
+
                 setBalance(newBalance);
                 setLastDiff(lastDiff);
                 setHistory(updatedHistory);
                 setCurrentEvent(randomEvent);
-                setFunds(newFunds);
+                setFunds(fundsAfterUnlocks);
                 setTurn(nextTurnNumber);
 
                 checkAchievements(updatedHistory, allocations, nextTurnNumber, maxTurns, newBalance);
@@ -784,7 +795,6 @@
                     } else {
                         setIsNewHighScore(false);
                     }
-                    checkUnlocks(newBalance);
                     setGameState('result');
                 }
             };
