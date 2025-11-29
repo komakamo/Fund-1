@@ -65,7 +65,11 @@
     }
     </script>
     <!-- Babel for JSX compilation in browser -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js" data-presets="env,react" data-plugins="transform-modules-umd"></script>
+    <script
+        src="https://unpkg.com/@babel/standalone/babel.min.js"
+        data-presets='[["env", { "modules": false }], "react"]'
+        data-type="module"
+    ></script>
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -90,7 +94,7 @@
         import { 
             LineChart as LineChartIcon, ArrowRight, TrendingUp, TrendingDown, AlertTriangle,
             Info, Globe, RefreshCw, BookOpen, Activity, PieChart, ShieldAlert, 
-            Landmark, Briefcase, Moon, Sun, DollarSign, Award, MessageSquareQuote
+            Landmark, Briefcase, Moon, Sun, DollarSign, Award, MessageSquare
         } from 'lucide-react';
         import { INITIAL_FUNDS, calculateNextTurn, EVENTS, ACHIEVEMENTS, UNLOCKABLES, analyzeInvestmentStyle } from './game.js';
 
@@ -459,7 +463,7 @@
 
                         <div className="mt-8 text-left bg-blue-50 dark:bg-blue-900/20 p-5 rounded-xl border-2 border-blue-200 dark:border-blue-800 shadow-sm">
                             <h4 className="text-blue-800 dark:text-blue-300 font-bold text-md mb-2 flex items-center gap-2">
-                                <MessageSquareQuote size={18} />
+                                <MessageSquare size={18} />
                                 投資スタイルの分析
                             </h4>
                             <p className="text-sm text-blue-700 dark:text-blue-200/90 leading-relaxed">
