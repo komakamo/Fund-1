@@ -755,7 +755,7 @@
                 } = calculateNextTurn(balance, allocations, funds, turn);
 
                 const nextTurnNumber = turn + 1;
-                const updatedHistory = [...history, { turn: turn, balance: newBalance, allocations: allocations }];
+                const updatedHistory = [...history, { turn: nextTurnNumber, balance: newBalance, allocations: allocations }];
 
                 const fundsAfterUnlocks = checkUnlocks(newBalance, newFunds);
 
