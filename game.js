@@ -16,7 +16,13 @@ const ACHIEVEMENTS = {
         id: 'insane_gambler',
         name: '狂気の投資家',
         description: 'ファンドCに100%の状態で10ターン経過',
-        condition: (history, allocations, turn) => allocations.C === 100 && turn > 10
+        condition: (history, allocations, turn) => {
+            if (allocations.C !== 100) return false;
+            const validHistory = history.filter(h => h.allocations);
+            if (validHistory.length < 9) return false;
+            const last9 = validHistory.slice(-9);
+            return last9.every(h => h.allocations.C === 100);
+        }
     },
     'perfect_game': {
         id: 'perfect_game',
