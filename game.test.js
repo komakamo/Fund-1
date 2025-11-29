@@ -194,7 +194,12 @@ describe('Global Capital Flow Game', () => {
         test('should unlock "狂気の投資家" achievement for staying 100% in Fund C for over 10 turns', () => {
             const allocations = { A: 0, B: 0, C: 100 };
             const achievement = ACHIEVEMENTS['insane_gambler'];
-            expect(achievement.condition([], allocations, 11)).toBe(true);
+            // Create a history that satisfies the requirement (9 past turns of 100% C)
+            const history = [];
+            for (let i = 1; i <= 9; i++) {
+                history.push({ turn: i, balance: 1000000, allocations: { A: 0, B: 0, C: 100 } });
+            }
+            expect(achievement.condition(history, allocations, 11)).toBe(true);
         });
 
         test('should unlock "神タイミング" achievement for a perfect game', () => {
