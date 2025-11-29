@@ -23,7 +23,7 @@ const ACHIEVEMENTS = {
         name: '神タイミング',
         description: '一度も損失を出さずに10ターン以上クリア',
         condition: (history, allocations, turn, maxTurns, finalBalance) => {
-            if (!maxTurns || turn <= maxTurns) return false;
+            if (!maxTurns || turn < maxTurns) return false;
             const initialBalance = history[0].balance;
             // Check if every turn's balance is greater than or equal to the previous turn's balance
             for (let i = 1; i < history.length; i++) {
@@ -31,7 +31,7 @@ const ACHIEVEMENTS = {
                     return false;
                 }
             }
-            return turn > 10;
+            return turn >= 10;
         }
     }
 };
