@@ -786,12 +786,12 @@
                 const newLog = `総資産 ${profitText}${preEventText} (${fundLogText})`;
 
                 setLogs([
-                    { turn: turn, text: newLog },
+                    { turn: nextTurnNumber, text: newLog },
                      ...turnLog.map(l => ({turn: l.turn, text: `EVENT: ${l.text}`})),
                     ...logs
                 ].slice(0, 10));
 
-                if (maxTurns && nextTurnNumber > maxTurns) {
+                if (maxTurns && nextTurnNumber >= maxTurns) {
                      if (!highScore || newBalance > highScore) {
                         localStorage.setItem('highScore', newBalance);
                         setHighScore(newBalance);
