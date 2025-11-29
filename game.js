@@ -91,8 +91,8 @@ function calculateNextTurn(balance, allocations, funds, turn) {
         };
     });
 
-    let newBalance = Math.floor(balance + turnProfit);
-    const lastDiff = Math.floor(turnProfit);
+    const balanceAfterFunds = Math.floor(balance + turnProfit);
+    let newBalance = balanceAfterFunds;
 
     let randomEvent = null;
     let newFunds = JSON.parse(JSON.stringify(funds));
@@ -108,9 +108,13 @@ function calculateNextTurn(balance, allocations, funds, turn) {
         }
     }
 
+    const lastDiff = Math.floor(newBalance - balance);
+    const preEventDiff = Math.floor(balanceAfterFunds - balance);
+
     return {
         newBalance,
         lastDiff,
+        preEventDiff,
         turnLog,
         randomEvent,
         newFunds,
