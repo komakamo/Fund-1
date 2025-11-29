@@ -677,10 +677,16 @@
 
             const totalAllocation = Object.values(allocations).reduce((a, b) => a + b, 0);
 
-            const checkAchievements = () => {
+            const checkAchievements = (
+                currentHistory = history,
+                currentAllocations = allocations,
+                currentTurn = turn,
+                currentMaxTurns = maxTurns,
+                currentBalance = balance
+            ) => {
                 const newAchievements = [];
                 Object.values(ACHIEVEMENTS).forEach(ach => {
-                    if (!unlockedAchievements.includes(ach.id) && ach.condition(history, allocations, turn, maxTurns, balance)) {
+                    if (!unlockedAchievements.includes(ach.id) && ach.condition(currentHistory, currentAllocations, currentTurn, currentMaxTurns, currentBalance)) {
                         newAchievements.push(ach.id);
                         setJustUnlocked(ach);
                         setTimeout(() => setJustUnlocked(null), 4000); // Popup disappears after 4s
@@ -693,9 +699,9 @@
                 }
             };
 
-            const checkUnlocks = () => {
+            const checkUnlocks = (currentBalance = balance) => {
                 const unlockedFunds = [];
-                if (UNLOCKABLES.fund_d.condition(balance)) {
+                if (UNLOCKABLES.fund_d.condition(currentBalance)) {
                     setFunds(prevFunds => ({...prevFunds, D: {...prevFunds.D, unlocked: true}}));
                     unlockedFunds.push('fund_d');
                 }
@@ -726,20 +732,6 @@
             };
 
             const nextTurn = () => {
-                if (maxTurns && turn >= maxTurns) {
-                     if (!highScore || balance > highScore) {
-                        localStorage.setItem('highScore', balance);
-                        setHighScore(balance);
-                        setIsNewHighScore(true);
-                    } else {
-                        setIsNewHighScore(false);
-                    }
-                    checkUnlocks();
-                    checkAchievements(); // Check final achievements
-                    setGameState('result');
-                    return;
-                }
-
                 const {
                     newBalance,
                     lastDiff,
@@ -749,14 +741,17 @@
                     fundDetails
                 } = calculateNextTurn(balance, allocations, funds, turn);
 
+                const nextTurnNumber = turn + 1;
+                const updatedHistory = [...history, { turn: turn, balance: newBalance, allocations: allocations }];
+
                 setBalance(newBalance);
                 setLastDiff(lastDiff);
-                setHistory([...history, { turn: turn, balance: newBalance, allocations: allocations }]);
+                setHistory(updatedHistory);
                 setCurrentEvent(randomEvent);
                 setFunds(newFunds);
-                setTurn(turn + 1);
+                setTurn(nextTurnNumber);
 
-                checkAchievements();
+                checkAchievements(updatedHistory, allocations, nextTurnNumber, maxTurns, newBalance);
 
                 if (lastDiff > 0) {
                     setBalanceAnimation('animate-poyo');
@@ -776,6 +771,18 @@
                      ...turnLog.map(l => ({turn: l.turn, text: `EVENT: ${l.text}`})),
                     ...logs
                 ].slice(0, 10));
+
+                if (maxTurns && nextTurnNumber > maxTurns) {
+                     if (!highScore || newBalance > highScore) {
+                        localStorage.setItem('highScore', newBalance);
+                        setHighScore(newBalance);
+                        setIsNewHighScore(true);
+                    } else {
+                        setIsNewHighScore(false);
+                    }
+                    checkUnlocks(newBalance);
+                    setGameState('result');
+                }
             };
 
             const getAutoBalancedAllocations = (currentFunds) => {
