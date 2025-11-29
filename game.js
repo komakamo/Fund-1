@@ -153,7 +153,7 @@ const EVENTS = [
         description: "ファンドCの運用担当者が交代し、よりハイリスク・ハイリターンな運用方針になりました。",
         effect: (funds, balance, allocations) => {
             const newFunds = JSON.parse(JSON.stringify(funds));
-            newFunds.C.fluctuation.min = -20;
+            newFunds.C.fluctuation.min = -50;
             newFunds.C.fluctuation.max = 60;
             newFunds.C.description = "担当者交代で超ハイリスクに。天国か地獄か。";
             return { funds: newFunds, balance: balance, log: "ファンドCの担当者が交代し、ハイリスク・ハイリターンに！" };

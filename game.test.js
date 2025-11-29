@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { INITIAL_FUNDS, calculateNextTurn, ACHIEVEMENTS, UNLOCKABLES, analyzeInvestmentStyle } from './game.js';
+import { INITIAL_FUNDS, calculateNextTurn, EVENTS, ACHIEVEMENTS, UNLOCKABLES, analyzeInvestmentStyle } from './game.js';
 
 describe('Global Capital Flow Game', () => {
 
@@ -170,6 +170,24 @@ describe('Global Capital Flow Game', () => {
         expect(result.fundDetails.C.profit).toBe(0);
 
         jest.spyOn(Math, 'random').mockRestore();
+    });
+
+    test('Event "Fund C Manager Change" should increase risk (lower min fluctuation)', () => {
+        const event = EVENTS.find(e => e.name === "ファンドC担当者交代");
+        expect(event).toBeDefined();
+
+        const funds = JSON.parse(JSON.stringify(INITIAL_FUNDS));
+        const balance = 1000000;
+        const allocations = { A: 0, B: 0, C: 100, D: 0 };
+
+        const result = event.effect(funds, balance, allocations);
+        const newFunds = result.funds;
+
+        // The event description says "High Risk", so the downside should be worse (lower min).
+        // Original min is -30.
+        // The bug sets it to -20 (safer).
+        // We expect it to be more negative than -30.
+        expect(newFunds.C.fluctuation.min).toBeLessThan(funds.C.fluctuation.min);
     });
 
     // --- Achievements and Unlocks Tests ---
