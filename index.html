@@ -359,7 +359,7 @@
                             </div>
 
                             <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">Select Game Mode</h2>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Choose your investment horizon.</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Choose your investment horizon. Unlimited モードは好きなタイミングで終了できます。</p>
 
                             <div className="grid grid-cols-1 gap-4">
                                 <button
@@ -381,6 +381,7 @@
                                     className="w-full bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300 font-bold py-3 rounded-xl hover:bg-gray-300 dark:hover:bg-slate-600 transition-all duration-200"
                                 >
                                     <span className="text-md">Unlimited</span>
+                                    <span className="block text-xs opacity-70">長期プレイ・手動終了可</span>
                                 </button>
                             </div>
 
@@ -409,10 +410,12 @@
             return { name: "破産", color: "text-red-500", size: "text-2xl" };
         };
 
-        const ResultScreen = ({ finalBalance, onRestart, isDarkMode, setIsDarkMode, isNewHighScore, history }) => {
+        const ResultScreen = ({ finalBalance, onRestart, isDarkMode, setIsDarkMode, isNewHighScore, history, isEndlessMode, maxTurns }) => {
             const rank = getRank(finalBalance);
             const initialBalance = history[0]?.balance || 1000000;
             const finalYield = ((finalBalance - initialBalance) / initialBalance) * 100;
+
+            const modeLabel = maxTurns ? `${maxTurns} Turns` : 'Unlimited (手動終了可)';
 
             const maxDrawdown = history.reduce((maxDD, current, i, arr) => {
                 const peak = Math.max(...arr.slice(0, i + 1).map(h => h.balance));
@@ -429,6 +432,13 @@
                                 NEW HIGH SCORE!
                             </div>
                         )}
+
+                        <div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-300 mb-4">
+                            <span className="font-bold px-3 py-1 bg-gray-100 dark:bg-slate-800 rounded-full border border-gray-200 dark:border-slate-700">{modeLabel}</span>
+                            {isEndlessMode && (
+                                <span className="text-xs text-amber-600 dark:text-amber-300">途中終了でもスコアが記録されます</span>
+                            )}
+                        </div>
 
                         <h2 className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Final Result</h2>
 
@@ -484,9 +494,15 @@
 
         const GameScreen = ({
             balance, turn, maxTurns, funds, allocations, history, currentEvent, logs, lastDiff, isDarkMode, setIsDarkMode, balanceAnimation,
-            handleAllocate, nextTurn, autoBalance, resetGame, totalAllocation
+            handleAllocate, nextTurn, autoBalance, resetGame, totalAllocation, isEndlessMode
         }) => {
              const [showTutorial, setShowTutorial] = useState(true);
+             const [showEndConfirm, setShowEndConfirm] = useState(false);
+
+             const handleEndGame = () => {
+                nextTurn({ forceEnd: true });
+                setShowEndConfirm(false);
+             };
 
             return (
                 <div className="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-800 dark:text-gray-100 font-sans p-4 md:p-6 transition-colors duration-300">
@@ -572,7 +588,7 @@
                             </div>
 
                              <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 p-6 rounded-2xl shadow-lg flex flex-col justify-center">
-                                 <button
+                                <button
                                     onClick={nextTurn}
                                     disabled={totalAllocation !== 100}
                                     className={`w-full py-5 rounded-xl font-black text-lg tracking-wide uppercase transition-all duration-200
@@ -590,6 +606,14 @@
                                         </span>
                                     )}
                                 </button>
+                                {isEndlessMode && (
+                                    <button
+                                        onClick={() => setShowEndConfirm(true)}
+                                        className="w-full mt-3 py-4 rounded-xl font-black text-md tracking-wide uppercase transition-all duration-200 border-2 border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+                                    >
+                                        自分で終了する
+                                    </button>
+                                )}
                                  <div className="flex justify-center gap-6 mt-4">
                                      <button onClick={autoBalance} className="text-sm font-bold text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline">
                                         Reset Allocation
@@ -601,6 +625,34 @@
                             </div>
                         </div>
                     </main>
+
+                    {/* End Confirmation Modal */}
+                    {showEndConfirm && (
+                        <div className="fixed inset-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
+                            <div className="bg-white dark:bg-slate-900 max-w-md w-full p-6 shadow-2xl rounded-2xl border border-gray-200 dark:border-slate-700 text-center relative animate-pop-in">
+                                <button onClick={() => setShowEndConfirm(false)} className="absolute top-4 right-4 text-gray-400 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white">✕</button>
+                                <div className="w-14 h-14 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-200 flex items-center justify-center rounded-full mx-auto mb-4">
+                                    <AlertTriangle size={28} />
+                                </div>
+                                <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">セッションを終了しますか？</h3>
+                                <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-6">Unlimitedモードはいつでも終了できます。現在の資産で結果を記録してリザルト画面へ移動します。</p>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setShowEndConfirm(false)}
+                                        className="w-1/2 py-3 rounded-xl font-bold border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+                                    >
+                                        キャンセル
+                                    </button>
+                                    <button
+                                        onClick={handleEndGame}
+                                        className="w-1/2 py-3 rounded-xl font-bold bg-amber-500 text-white hover:bg-amber-400 transition-colors shadow-lg"
+                                    >
+                                        終了して結果を見る
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Tutorial Modal */}
                     {showTutorial && (
@@ -646,6 +698,7 @@
             const [balance, setBalance] = useState(1000000);
             const [turn, setTurn] = useState(0);
             const [maxTurns, setMaxTurns] = useState(null);
+            const [isEndlessMode, setIsEndlessMode] = useState(false);
             const [funds, setFunds] = useState(INITIAL_FUNDS);
             const [allocations, setAllocations] = useState({ A: 34, B: 33, C: 33, D: 0 });
             const [history, setHistory] = useState([{ turn: 0, balance: 1000000 }]);
@@ -765,13 +818,37 @@
                 Object.keys(allocations).forEach(key => {
                     if (key !== id) otherTotal += allocations[key];
                 });
-                
+
                 if (otherTotal + value <= 100) {
                     setAllocations(prev => ({ ...prev, [id]: value }));
                 }
             };
 
-            const nextTurn = () => {
+            const handleGameEnd = (
+                finalBalance = balance,
+                finalHistory = history,
+                finalTurn = turn,
+                finalAllocations = allocations
+            ) => {
+                checkAchievements(finalHistory, finalAllocations, finalTurn, maxTurns, finalBalance);
+
+                const hasNewHighScore = !highScore || finalBalance > highScore;
+                if (hasNewHighScore) {
+                    localStorage.setItem('highScore', finalBalance);
+                    setHighScore(finalBalance);
+                }
+                setIsNewHighScore(hasNewHighScore);
+                setGameState('result');
+            };
+
+            const nextTurn = (options = {}) => {
+                const { forceEnd = false, endAfterTurn = false } = options;
+
+                if (forceEnd) {
+                    handleGameEnd(balance, history, turn, allocations);
+                    return;
+                }
+
                 const nextTurnNumber = turn + 1;
                 const {
                     newBalance,
@@ -817,15 +894,10 @@
                     ...logs
                 ].slice(0, 10));
 
-                if (maxTurns && nextTurnNumber >= maxTurns) {
-                     if (!highScore || newBalance > highScore) {
-                        localStorage.setItem('highScore', newBalance);
-                        setHighScore(newBalance);
-                        setIsNewHighScore(true);
-                    } else {
-                        setIsNewHighScore(false);
-                    }
-                    setGameState('result');
+                const shouldEndGame = (maxTurns && nextTurnNumber >= maxTurns) || endAfterTurn;
+
+                if (shouldEndGame) {
+                    handleGameEnd(newBalance, updatedHistory, nextTurnNumber, allocations);
                 }
             };
 
@@ -855,6 +927,7 @@
 
             const startGame = (turns) => {
                 setMaxTurns(turns);
+                setIsEndlessMode(turns === null);
                 setGameState('playing');
             };
 
@@ -863,7 +936,8 @@
                 setBalance(1000000);
                 setTurn(0);
                 setMaxTurns(null);
-                 // Reset funds but keep unlocked status
+                setIsEndlessMode(false);
+                // Reset funds but keep unlocked status
                 const newFunds = JSON.parse(JSON.stringify(INITIAL_FUNDS));
                 if (funds.D.unlocked) {
                     newFunds.D.unlocked = true;
@@ -874,6 +948,7 @@
                 setCurrentEvent(null);
                 setLogs([]);
                 setLastDiff(0);
+                setIsNewHighScore(false);
             };
 
             const restartGame = () => {
@@ -904,8 +979,9 @@
                         autoBalance={autoBalance}
                         resetGame={resetGame}
                         totalAllocation={totalAllocation}
+                        isEndlessMode={isEndlessMode}
                     />}
-                    {gameState === 'result' && <ResultScreen finalBalance={balance} onRestart={restartGame} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} isNewHighScore={isNewHighScore} history={history} />}
+                    {gameState === 'result' && <ResultScreen finalBalance={balance} onRestart={restartGame} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} isNewHighScore={isNewHighScore} history={history} isEndlessMode={isEndlessMode} maxTurns={maxTurns} />}
                 </div>
             );
         }
