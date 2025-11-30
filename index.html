@@ -657,7 +657,8 @@
             const [isNewHighScore, setIsNewHighScore] = useState(false);
             const [balanceAnimation, setBalanceAnimation] = useState('');
             const [unlockedAchievements, setUnlockedAchievements] = useState([]);
-            const [justUnlocked, setJustUnlocked] = useState(null);
+            const [justUnlockedQueue, setJustUnlockedQueue] = useState([]);
+            const [currentAchievement, setCurrentAchievement] = useState(null);
 
             useEffect(() => {
                 // Load data from localStorage on initial render
@@ -688,20 +689,46 @@
                 currentMaxTurns = maxTurns,
                 currentBalance = balance
             ) => {
-                const newAchievements = [];
-                Object.values(ACHIEVEMENTS).forEach(ach => {
-                    if (!unlockedAchievements.includes(ach.id) && ach.condition(currentHistory, currentAllocations, currentTurn, currentMaxTurns, currentBalance)) {
-                        newAchievements.push(ach.id);
-                        setJustUnlocked(ach);
-                        setTimeout(() => setJustUnlocked(null), 4000); // Popup disappears after 4s
-                    }
-                });
-                if (newAchievements.length > 0) {
-                    const updatedAchievements = [...unlockedAchievements, ...newAchievements];
-                    setUnlockedAchievements(updatedAchievements);
+                const newlyUnlockedIds = Object.values(ACHIEVEMENTS)
+                    .filter(ach =>
+                        !unlockedAchievements.includes(ach.id) &&
+                        ach.condition(currentHistory, currentAllocations, currentTurn, currentMaxTurns, currentBalance)
+                    )
+                    .map(ach => ach.id);
+
+                if (newlyUnlockedIds.length === 0) return;
+
+                setUnlockedAchievements(prev => {
+                    const updatedAchievements = Array.from(new Set([...prev, ...newlyUnlockedIds]));
                     localStorage.setItem('unlockedAchievements', JSON.stringify(updatedAchievements));
-                }
+                    return updatedAchievements;
+                });
+
+                setJustUnlockedQueue(prevQueue => {
+                    const existingIds = new Set(prevQueue.map(ach => ach.id));
+                    const achievementsToQueue = newlyUnlockedIds
+                        .map(id => ACHIEVEMENTS[id])
+                        .filter(ach => !existingIds.has(ach.id));
+                    return [...prevQueue, ...achievementsToQueue];
+                });
             };
+
+            useEffect(() => {
+                if (!currentAchievement && justUnlockedQueue.length > 0) {
+                    setCurrentAchievement(justUnlockedQueue[0]);
+                }
+            }, [justUnlockedQueue, currentAchievement]);
+
+            useEffect(() => {
+                if (!currentAchievement) return;
+
+                const timer = setTimeout(() => {
+                    setCurrentAchievement(null);
+                    setJustUnlockedQueue(prevQueue => prevQueue.slice(1));
+                }, 4000);
+
+                return () => clearTimeout(timer);
+            }, [currentAchievement]);
 
             const checkUnlocks = (currentBalance = balance, currentFunds = funds) => {
                 const savedUnlocks = new Set(JSON.parse(localStorage.getItem('unlockedFunds')) || []);
@@ -857,7 +884,7 @@
 
             return (
                 <div className={isDarkMode ? 'dark' : ''}>
-                    <AchievementPopup achievement={justUnlocked} />
+                    <AchievementPopup achievement={currentAchievement} />
                     {gameState === 'title' && <TitleScreen onStartGame={startGame} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} highScore={highScore} achievements={ACHIEVEMENTS} unlockedAchievements={unlockedAchievements}/>}
                     {gameState === 'playing' && <GameScreen
                         balance={balance}
