@@ -220,7 +220,7 @@ describe('Global Capital Flow Game', () => {
             expect(achievement.condition(history, allocations, 11)).toBe(true);
         });
 
-        test('should unlock "神タイミング" achievement for a perfect game', () => {
+        test('should unlock "神タイミング" achievement after 10 turns without losses', () => {
             const history = [
                 { turn: 0, balance: 1000000 },
                 { turn: 1, balance: 1100000 },
@@ -234,9 +234,27 @@ describe('Global Capital Flow Game', () => {
                 { turn: 9, balance: 1900000 },
                 { turn: 10, balance: 2000000 },
             ];
-             const achievement = ACHIEVEMENTS['perfect_game'];
-            // Condition: history, allocations, turn, maxTurns, finalBalance
-            expect(achievement.condition(history, {}, 11, 10, 2000000)).toBe(true);
+            const achievement = ACHIEVEMENTS['perfect_game'];
+            expect(achievement.condition(history, {}, 10)).toBe(true);
+        });
+
+        test('should unlock "神タイミング" in endless mode when conditions are met', () => {
+            const endlessHistory = [
+                { turn: 0, balance: 1000000 },
+                { turn: 1, balance: 1050000 },
+                { turn: 2, balance: 1100000 },
+                { turn: 3, balance: 1150000 },
+                { turn: 4, balance: 1200000 },
+                { turn: 5, balance: 1250000 },
+                { turn: 6, balance: 1300000 },
+                { turn: 7, balance: 1350000 },
+                { turn: 8, balance: 1400000 },
+                { turn: 9, balance: 1450000 },
+                { turn: 10, balance: 1500000 },
+                { turn: 11, balance: 1550000 },
+            ];
+            const achievement = ACHIEVEMENTS['perfect_game'];
+            expect(achievement.condition(endlessHistory, {}, 11, null)).toBe(true);
         });
 
          test('should not unlock "神タイミング" if there was a loss', () => {
@@ -247,7 +265,7 @@ describe('Global Capital Flow Game', () => {
                 { turn: 3, balance: 1200000 },
             ];
              const achievement = ACHIEVEMENTS['perfect_game'];
-            expect(achievement.condition(historyWithLoss, {}, 11, 10, 1200000)).toBe(false);
+            expect(achievement.condition(historyWithLoss, {}, 11)).toBe(false);
         });
 
         test('should unlock Fund D when final balance is 2,000,000 or more', () => {
