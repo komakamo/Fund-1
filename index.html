@@ -644,7 +644,7 @@
         function App() {
             const [gameState, setGameState] = useState('title'); // 'title', 'playing', 'result'
             const [balance, setBalance] = useState(1000000);
-            const [turn, setTurn] = useState(1);
+            const [turn, setTurn] = useState(0);
             const [maxTurns, setMaxTurns] = useState(null);
             const [funds, setFunds] = useState(INITIAL_FUNDS);
             const [allocations, setAllocations] = useState({ A: 34, B: 33, C: 33, D: 0 });
@@ -745,6 +745,7 @@
             };
 
             const nextTurn = () => {
+                const nextTurnNumber = turn + 1;
                 const {
                     newBalance,
                     lastDiff,
@@ -753,9 +754,7 @@
                     randomEvent,
                     newFunds,
                     fundDetails
-                } = calculateNextTurn(balance, allocations, funds, turn);
-
-                const nextTurnNumber = turn + 1;
+                } = calculateNextTurn(balance, allocations, funds, nextTurnNumber);
                 const updatedHistory = [...history, { turn: nextTurnNumber, balance: newBalance, allocations: allocations }];
 
                 const fundsAfterUnlocks = checkUnlocks(newBalance, newFunds);
@@ -835,7 +834,8 @@
             const resetGame = () => {
                 setGameState('title');
                 setBalance(1000000);
-                setTurn(1);
+                setTurn(0);
+                setMaxTurns(null);
                  // Reset funds but keep unlocked status
                 const newFunds = JSON.parse(JSON.stringify(INITIAL_FUNDS));
                 if (funds.D.unlocked) {
