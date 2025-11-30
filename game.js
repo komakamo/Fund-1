@@ -27,10 +27,9 @@ const ACHIEVEMENTS = {
     'perfect_game': {
         id: 'perfect_game',
         name: '神タイミング',
-        description: '一度も損失を出さずに10ターン以上クリア',
-        condition: (history, allocations, turn, maxTurns, finalBalance) => {
-            if (!maxTurns || turn < maxTurns) return false;
-            const initialBalance = history[0].balance;
+        description: '10ターン以上プレイし、資産が一度も前のターンを下回らない',
+        condition: (history, allocations, turn) => {
+            if (turn < 10) return false;
             // Check if every turn's balance is greater than or equal to the previous turn's balance
             for (let i = 1; i < history.length; i++) {
                 if (history[i].balance < history[i-1].balance) {
