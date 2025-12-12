@@ -133,6 +133,33 @@ describe('Global Capital Flow Game', () => {
         finalMock.mockRestore();
     });
 
+    test('should handle missing allocations during event calculations', () => {
+        const allocations = { A: 100 };
+
+        const mock = jest.spyOn(Math, 'random')
+            .mockReturnValueOnce(0.5) // Fund A value
+            .mockReturnValueOnce(0.7) // Fund A sign
+            .mockReturnValueOnce(0.2) // Event trigger (< 0.3)
+            .mockReturnValueOnce(0.6); // Event selection ("円安急進")
+
+        const result = calculateNextTurn(balance, allocations, funds, turn);
+
+        const fundA = funds.A;
+        const rangeA = fundA.fluctuation.max - fundA.fluctuation.min;
+        const valueA = 0.5 * rangeA + fundA.fluctuation.min;
+        const expectedFluctuationA = valueA;
+        const expectedReturnA = (fundA.expectedReturn + expectedFluctuationA) / 100;
+        const expectedProfitA = balance * expectedReturnA;
+        const expectedBalance = Math.floor(balance + expectedProfitA);
+
+        expect(result.randomEvent).not.toBeNull();
+        expect(result.randomEvent.name).toBe('円安急進');
+        expect(result.newBalance).toBe(expectedBalance);
+        expect(Number.isFinite(result.newBalance)).toBe(true);
+
+        mock.mockRestore();
+    });
+
     test('should return correct fundDetails object', () => {
         allocations = { A: 50, B: 50, C: 0 };
         jest.spyOn(Math, 'random')

@@ -129,7 +129,8 @@ const EVENTS = [
             const newFunds = JSON.parse(JSON.stringify(funds));
             let totalBoost = 0;
             Object.keys(newFunds).forEach(key => {
-                const investedAmount = balance * (allocations[key] / 100);
+                const allocationPct = (allocations[key] || 0) / 100;
+                const investedAmount = balance * allocationPct;
                 const boostPercent = (Math.random() * 5 + 5) / 100; // 5-10%
                 totalBoost += investedAmount * boostPercent;
             });
@@ -141,7 +142,7 @@ const EVENTS = [
         description: "ITバブルが崩壊し、ハイテク中心のファンドCに投資した資産が20%減少しました。",
         effect: (funds, balance, allocations) => {
             const newFunds = JSON.parse(JSON.stringify(funds));
-            const investedInC = balance * (allocations.C / 100);
+            const investedInC = balance * ((allocations.C || 0) / 100);
             const loss = investedInC * 0.20; // 20% loss on the amount invested in C
             return { funds: newFunds, balance: balance - loss, log: "ITバブル崩壊によりファンドCが打撃を受けた！" };
         }
@@ -151,8 +152,8 @@ const EVENTS = [
         description: "円安が急進し、海外資産比率が高いファンドBとCに投資した資産が15%増加しました。",
         effect: (funds, balance, allocations) => {
             const newFunds = JSON.parse(JSON.stringify(funds));
-            const investedInB = balance * (allocations.B / 100);
-            const investedInC = balance * (allocations.C / 100);
+            const investedInB = balance * ((allocations.B || 0) / 100);
+            const investedInC = balance * ((allocations.C || 0) / 100);
             const gain = (investedInB + investedInC) * 0.15; // 15% gain on B and C
             return { funds: newFunds, balance: balance + gain, log: "円安により海外資産ファンドが急騰！" };
         }
