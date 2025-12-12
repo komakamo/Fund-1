@@ -19,9 +19,9 @@ const ACHIEVEMENTS = {
         condition: (history, allocations, turn) => {
             if (allocations.C !== 100) return false;
             const validHistory = history.filter(h => h.allocations);
-            if (validHistory.length < 9) return false;
-            const last9 = validHistory.slice(-9);
-            return last9.every(h => h.allocations.C === 100);
+            if (validHistory.length < 10) return false;
+            const last10 = validHistory.slice(-10);
+            return last10.every(h => h.allocations.C === 100);
         }
     },
     'perfect_game': {
