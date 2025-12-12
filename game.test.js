@@ -160,6 +160,26 @@ describe('Global Capital Flow Game', () => {
         mock.mockRestore();
     });
 
+    test('event effects should default missing allocations to zero', () => {
+        const baseBalance = 500000;
+        const fundsCopy = JSON.parse(JSON.stringify(INITIAL_FUNDS));
+
+        const easingEvent = EVENTS.find(e => e.name === '世界的金融緩和');
+        const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.5);
+        const easingResult = easingEvent.effect(fundsCopy, baseBalance, { A: 50 });
+
+        expect(Number.isFinite(easingResult.balance)).toBe(true);
+        expect(easingResult.balance).toBeGreaterThan(baseBalance);
+
+        randomSpy.mockRestore();
+
+        const yenEvent = EVENTS.find(e => e.name === '円安急進');
+        const yenResult = yenEvent.effect(fundsCopy, baseBalance, { A: 100 });
+
+        expect(yenResult.balance).toBe(baseBalance);
+        expect(Number.isFinite(yenResult.balance)).toBe(true);
+    });
+
     test('should return correct fundDetails object', () => {
         allocations = { A: 50, B: 50, C: 0 };
         jest.spyOn(Math, 'random')
